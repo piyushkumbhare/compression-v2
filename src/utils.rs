@@ -1,5 +1,5 @@
 use clap::{arg, command, Parser};
-use std::{collections::HashMap, hash::Hash, u128};
+use std::{collections::HashMap, error::Error, fs::metadata, hash::Hash, io, path::Path, u128};
 
 /*
     This is a utlility file which contains various helper-functions used throughout this project.
@@ -84,7 +84,7 @@ pub fn get_least_used_byte(input: &Vec<u8>) -> u8 {
         }
     }
 
-    // If the bitmask failed (aka all 256 bytes were present, use the more expensive HashMap appraoch)  
+    // If the bitmask failed (aka all 256 bytes were present, use the more expensive HashMap appraoch)
     let mut map: HashMap<u8, usize> = HashMap::new();
 
     input.iter().for_each(|&b| {
@@ -95,4 +95,33 @@ pub fn get_least_used_byte(input: &Vec<u8>) -> u8 {
         .min_by_key(|(byte, count)| *count)
         .unwrap_or((0, 0)) // This default will almost never get reached since it means the input is empty
         .0
+}
+
+pub fn insert_before_target(input: &mut Vec<u8>, target_byte: u8, insert_byte: u8) {
+    let mut index = 0;
+    while index < input.len() {
+        if input[index] == target_byte {
+            // Insert a backslash before the target byte
+            input.insert(index, insert_byte);
+            // Move past the inserted backslash and delim
+            index += 2;
+        } else {
+            index += 1;
+        }
+    }
+}
+
+/// Gets the file size given a path. Unified functionality across different OS's.
+pub fn get_file_size(path: &str) -> io::Result<u64> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::fs::MetadataExt;
+        return Ok(metadata(path)?.file_size());
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::linux::fs::MetadataExt;
+        return Ok(metadata(path)?.st_size());
+    }
 }

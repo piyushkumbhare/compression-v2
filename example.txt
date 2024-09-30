@@ -1,1 +1,5 @@
-aaaaaab
+I am making some changes to my course communication for the Fall. From this point forward, all course communication will be through my university email address given above and must be sent from your university address. Your email subject line must include the course number and semester, e.g.:
+
+Subject: ECS-160 FQ24 - Some question about some aspect of the course
+
+Your email will be filtered using these subject headers and if you fail to include them then your email may not make it into the right folder and you may experience a delayed response, or, an automated response telling you to resubmit correctly.

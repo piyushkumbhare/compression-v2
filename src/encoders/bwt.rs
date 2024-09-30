@@ -6,9 +6,9 @@ use std::{collections::HashMap, error::Error};
 
 use radsort::Key;
 
-use crate::*;
+use crate::utils::*;
 
-use super::encoder::Encoder;
+use super::encoder::Tokens;
 
 #[derive(PartialEq, Eq, PartialOrd, Hash, Clone, Copy)]
 enum Token {
@@ -48,13 +48,17 @@ impl<'a> Display for ParseError<'a> {
     }
 }
 
-pub struct BWT;
+pub trait Bwt {
+    fn encode_bwt(&mut self) -> &mut Self;
 
-impl Encoder for BWT {
-    fn encode(input: Vec<u8>) -> Result<Vec<u8>, Box<dyn Error>> {
-        let mut tokens: Vec<Token> = input.iter().map(|&b| Token::Byte(b)).collect();
+    fn decode_bwt(&mut self) -> &mut Self;
+}
+
+impl Bwt for Tokens {
+    fn encode_bwt(&mut self) -> &mut Self {
+        let mut tokens: Vec<Token> = self.0.iter().map(|&b| Token::Byte(b)).collect();
         tokens.push(Token::Delim);
-        
+
         // TODO: Convert this function to O(n) Suffix Array creation
         let mut suffix_array: Vec<(usize, &[Token])> = tokens
             .iter()
@@ -74,7 +78,7 @@ impl Encoder for BWT {
 
         for (index, position) in suffix_array.iter().enumerate() {
             if *position > 0 {
-                encoded_output.push(input[position - 1]);
+                encoded_output.push(self.0[position - 1]);
             } else {
                 delim_pos = index;
             }
@@ -87,22 +91,23 @@ impl Encoder for BWT {
         let mut final_output = format!("{}|", delim_pos_b36).into_bytes();
         final_output.append(&mut encoded_output);
 
-        Ok(final_output)
+        self.0 = final_output;
+        self
     }
 
-    fn decode(input: Vec<u8>) -> Result<Vec<u8>, Box<dyn Error>> {
+    fn decode_bwt(&mut self) -> &mut Self {
         // First start by splitting on the first b'|', which separates the header & the data
-        let Some(split_index) = input.iter().position(|&b| b == b'|') else {
-            return Err(Box::new(ParseError("Unable to find BWT delimiter '|'")));
-        };
+        let split_index = self
+            .0
+            .iter()
+            .position(|&b| b == b'|')
+            .expect("Unable to find BWT delimiter '|'");
 
-        let (header, data) = input.split_at(split_index);
+        let (header, data) = self.0.split_at(split_index);
         let header: String = header.iter().map(|b| char::from(*b)).collect();
-        let Some(data) = data.get(1..) else {
-            return Err(Box::new(ParseError("Unable to split bytes at '|'")));
-        };
+        let data = data.get(1..).expect("Unable to split bytes at '|'");
 
-        let delim_pos: usize = usize::from_str_radix(&header, 36)?;
+        let delim_pos: usize = usize::from_str_radix(&header, 36).unwrap();
 
         // Convert all bytes to Tokens & insert the Delim based on header
         let mut tokens: Vec<Token> = data.iter().map(|&b| Token::Byte(b)).collect();
@@ -128,18 +133,18 @@ impl Encoder for BWT {
         });
 
         let mut decoded_tokens: Vec<Token> = Vec::with_capacity(unsorted.len());
-        let mut current_char = (Token::Delim, 0 as usize);
+        let mut current_byte = (Token::Delim, 0 as usize);
 
         drop(sorted);
         drop(unsorted);
 
         // Backtrack through the BWT dictionary to rebuild original string
         while *decoded_tokens.last().unwrap_or(&Token::Byte(0)) != Token::Delim {
-            let Some(next_char) = map.remove(&current_char) else {
-                return Err(Box::new(ParseError("A byte was read that was really not supposed to be there...")));
-            };
-            decoded_tokens.push(next_char.0);
-            current_char = next_char;
+            let next_byte = map
+                .remove(&current_byte)
+                .expect("A byte was read that was really not supposed to be there...");
+            decoded_tokens.push(next_byte.0);
+            current_byte = next_byte;
         }
 
         let output: Vec<u8> = decoded_tokens
@@ -151,6 +156,7 @@ impl Encoder for BWT {
             })
             .collect();
 
-        Ok(output)
+        self.0 = output;
+        self
     }
 }

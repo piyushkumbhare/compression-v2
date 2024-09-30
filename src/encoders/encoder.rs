@@ -2,9 +2,14 @@ use std::error::Error;
 
 
 
-pub trait Encoder {
-    fn encode(input: Vec<u8>) -> Result<Vec<u8>, Box<dyn Error>>;
+pub struct Tokens(pub Vec<u8>);
 
-    fn decode(input: Vec<u8>) -> Result<Vec<u8>, Box<dyn Error>>;
+impl Tokens {
+    pub fn new(input: Vec<u8>) -> Self {
+        Self(input)
+    }
+
+    pub fn to_bytes(&mut self) -> Vec<u8> {
+        self.0
+    }
 }
-
