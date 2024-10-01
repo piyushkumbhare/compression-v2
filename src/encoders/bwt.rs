@@ -1,10 +1,7 @@
-use core::slice;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display};
-use std::ops::Index;
 use std::{collections::HashMap, error::Error};
 
-use radsort::Key;
 
 use crate::utils::*;
 
@@ -43,7 +40,7 @@ impl<'a> Error for ParseError<'_> {}
 
 impl<'a> Display for ParseError<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Error while parsing data. File may be corrupted.\n");
+        f.write_str("Error while parsing data. File may be corrupted.\n")?;
         f.write_str(&self.0)
     }
 }
@@ -67,10 +64,10 @@ impl Bwt for Tokens {
             .enumerate()
             .collect();
 
-        suffix_array.sort_by_key(|(index, token)| *token);
+        suffix_array.sort_by_key(|(_index, token)| *token);
         let suffix_array: Vec<usize> = suffix_array
             .into_iter()
-            .map(|(index, token)| index)
+            .map(|(index, _token)| index)
             .collect();
 
         let mut delim_pos: usize = 0;
@@ -107,7 +104,8 @@ impl Bwt for Tokens {
         let header: String = header.iter().map(|b| char::from(*b)).collect();
         let data = data.get(1..).expect("Unable to split bytes at '|'");
 
-        let delim_pos: usize = usize::from_str_radix(&header, 36).unwrap();
+        let delim_pos = usize::from_str_radix(&header, 36)
+            .expect(format!("Unable to parse `{header}` ({:?}) into a b36 number", header).as_str());
 
         // Convert all bytes to Tokens & insert the Delim based on header
         let mut tokens: Vec<Token> = data.iter().map(|&b| Token::Byte(b)).collect();

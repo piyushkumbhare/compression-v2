@@ -1,5 +1,5 @@
 use clap::{arg, command, Parser};
-use std::{collections::HashMap, error::Error, fs::metadata, hash::Hash, io, path::Path, u128};
+use std::{collections::HashMap, fs::metadata, hash::Hash, io};
 
 /*
     This is a utlility file which contains various helper-functions used throughout this project.
@@ -52,11 +52,6 @@ pub fn format_radix(mut x: u32, radix: u32) -> String {
     result.into_iter().rev().collect()
 }
 
-/// Max `u32` ASCII value used in `RLE`.
-pub const MAX_ASCII: u32 = 126;
-/// Min `u32` ASCII value used in `RLE`.
-pub const MIN_ASCII: u32 = 33;
-
 /// Retrieves the least used byte in a Vec<u8>. An unused byte will always be returned if present.
 pub fn get_least_used_byte(input: &Vec<u8>) -> u8 {
     // First we run through with a bitmask
@@ -92,7 +87,7 @@ pub fn get_least_used_byte(input: &Vec<u8>) -> u8 {
     });
 
     map.into_iter()
-        .min_by_key(|(byte, count)| *count)
+        .min_by_key(|(_byte, count)| *count)
         .unwrap_or((0, 0)) // This default will almost never get reached since it means the input is empty
         .0
 }

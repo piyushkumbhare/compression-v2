@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use super::encoder::*;
 use crate::*;
 
@@ -28,7 +26,7 @@ impl Rle for Tokens {
         let mut count = 1;
         let mut last_byte = self.0[0];
 
-        let mut input_iter = self.0[1..].iter();
+        let input_iter = self.0[1..].iter();
         for &current_byte in input_iter {
             // If we encounter a new byte OR we hit the repeat limit
             // potentially append run length encoded vec to the output
@@ -85,7 +83,7 @@ impl Rle for Tokens {
                 output.push(b);
             }
         }
-
+        self.0 = output;
         self
     }
 }

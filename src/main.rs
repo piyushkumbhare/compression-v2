@@ -1,21 +1,17 @@
-#![allow(unused)]
-
-use bwt::Bwt;
-use clap::Parser;
-use encoder::Tokens;
-use rle::Rle;
-use std::{
-    error::Error,
-    fs::File,
-    io::{Read, Write},
-    process::exit,
-};
-
+// #![allow(unused)]
 mod utils;
-use utils::*;
-
 mod encoders;
+
+use encoder::{Compress, Encoder};
+use utils::*;
 use encoders::*;
+
+use std::error::Error;
+
+use clap::Parser;
+use colored::Colorize;
+use sha256::digest;
+
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
@@ -26,50 +22,59 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Reading file
 
-    let mut input_file = File::open(&args.file)?;
-    let mut buf: Vec<u8> = vec![];
-    input_file.read_to_end(&mut buf);
+    let buf = std::fs::read(input_path)?;
+
+    let original_sha256 = digest(&buf);
 
     let input_size = buf.len();
 
     // Encoding
 
-    let output = Tokens::new(buf)
-        .encode_bwt()
-        .encode_rle()
-        .to_bytes();
-    
-    let mut output_file = File::create(&output_path)?;
-    output_file.write_all(&output);
+    let mut compressor = Compress::new(buf, &[Encoder::Rle]);
 
-    let output_size = output.len();
+    let output = compressor.compress();
+
+    std::fs::write(&output_path, &output.0)?;
+
+    let output_size = output.0.len();
 
     // Decoding
 
-    let decoded = Tokens::new(output.clone())
-        .decode_rle()
-        .decode_bwt()
-        .to_bytes();
+    let decoded = compressor.decompress();
 
-    let mut decoded_file = File::create(&decoded_path)?;
-    decoded_file.write_all(&decoded);
+    std::fs::write(&decoded_path, &decoded.0)?;
 
     let percent = (1.0 - output_size as f32 / input_size as f32) * 100.0;
 
-    print!("Size (Bytes):");
     println!(
-        r#"
-{input_path} - {}
-{output_path} - {}
-Total compression: {:0.2}%
+        r#"Size (Bytes):
 
-{decoded_path} - {}
+        {input_path} - {}
+        {output_path} - {}
+        {decoded_path} - {}
+
+        Total compression: {:0.2}%
+
     "#,
         get_file_size(&input_path)?,
         get_file_size(&output_path)?,
         percent,
         get_file_size(&decoded_path)?
     );
+
+    let new_sha256 = digest(&decoded.0);
+
+    if original_sha256 == new_sha256 {
+        println!(
+            "Old and new Hashes are same, so decode was {}. Nice!",
+            "successful".green().bold()
+        );
+    } else {
+        println!(
+            "Old and new Hashes differ, so decode was {}!",
+            "unsuccessful".red().bold()
+        );
+    }
 
     Ok(())
 }
