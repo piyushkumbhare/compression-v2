@@ -1,17 +1,16 @@
 // #![allow(unused)]
-mod utils;
 mod encoders;
+mod utils;
 
 use encoder::{Compress, Encoder};
-use utils::*;
 use encoders::*;
+use utils::*;
 
 use std::error::Error;
 
 use clap::Parser;
 use colored::Colorize;
 use sha256::digest;
-
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
@@ -20,60 +19,54 @@ fn main() -> Result<(), Box<dyn Error>> {
     let output_path = format!("{}.pkz", &args.file);
     let decoded_path = format!("{}.decoded", &args.file);
 
-    // Reading file
-
     let buf = std::fs::read(input_path)?;
 
+    // Grab some metadata before encoding the input. Used for stats later.
     let original_sha256 = digest(&buf);
+    let input_size = get_file_size(&input_path)?;
 
-    let input_size = buf.len();
+    // Define the compression stages to use
+    let mut compressor = Compress::new(buf, &[Encoder::Bwt, Encoder::Rle, ]);
 
-    // Encoding
-
-    let mut compressor = Compress::new(buf, &[Encoder::Rle]);
-
+    // Encode & write to `.pkz` file
     let output = compressor.compress();
-
     std::fs::write(&output_path, &output.0)?;
+    let output_size = get_file_size(&output_path)?;
 
-    let output_size = output.0.len();
-
-    // Decoding
-
+    // Decode & write to `.decoded` file
     let decoded = compressor.decompress();
-
     std::fs::write(&decoded_path, &decoded.0)?;
+    let decoded_size = get_file_size(&decoded_path)?;
 
+    // Print statistics & results
     let percent = (1.0 - output_size as f32 / input_size as f32) * 100.0;
 
     println!(
         r#"Size (Bytes):
 
-        {input_path} - {}
-        {output_path} - {}
-        {decoded_path} - {}
+    {input_path} - {input_size}
+    {output_path} - {output_size}
+    {decoded_path} - {decoded_size}
 
-        Total compression: {:0.2}%
+    Total compression: {:0.2}%
 
     "#,
-        get_file_size(&input_path)?,
-        get_file_size(&output_path)?,
         percent,
-        get_file_size(&decoded_path)?
     );
 
     let new_sha256 = digest(&decoded.0);
 
+    print!("Decode: ");
     if original_sha256 == new_sha256 {
         println!(
-            "Old and new Hashes are same, so decode was {}. Nice!",
-            "successful".green().bold()
-        );
+            "{}. Compressed file decodes back to original.",
+            "Success".green().bold()
+        )
     } else {
         println!(
-            "Old and new Hashes differ, so decode was {}!",
-            "unsuccessful".red().bold()
-        );
+            "{}. Compressed file does not decode back to original.",
+            "Failed".red().bold()
+        )
     }
 
     Ok(())

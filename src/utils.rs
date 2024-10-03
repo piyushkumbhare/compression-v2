@@ -7,6 +7,8 @@ use std::{collections::HashMap, fs::metadata, hash::Hash, io};
     Everything here is documented with a breif description of what it does.
 */
 
+// Clap's CLI argument parser
+
 /// Compresses an input file into an output (with extension .pkzip)
 #[derive(Debug, Parser)]
 #[command(about)]
