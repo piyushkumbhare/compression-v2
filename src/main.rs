@@ -2,7 +2,7 @@
 mod encoders;
 mod utils;
 
-use encoder::{Compress, Encoder};
+use encoder::{Compress, Encode};
 use encoders::*;
 use utils::*;
 
@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let input_size = get_file_size(&input_path)?;
 
     // Define the compression stages to use
-    let mut compressor = Compress::new(buf, &[Encoder::Bwt, Encoder::Rle, ]);
+    let mut compressor = Compress::new(buf, &[Encode::Bwt, Encode::Rle]);
 
     // Encode & write to `.pkz` file
     let output = compressor.compress();

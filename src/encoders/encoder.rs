@@ -1,7 +1,5 @@
 use super::{bwt::Bwt, mtf::Mtf, rle::Rle};
 
-
-
 #[derive(Clone, Debug)]
 pub struct Tokens(pub Vec<u8>);
 
@@ -13,7 +11,7 @@ impl Tokens {
 
 #[allow(unused)]
 #[derive(Clone, Copy, Debug)]
-pub enum Encoder {
+pub enum Encode {
     Bwt,
     Rle,
     Mtf,
@@ -21,11 +19,11 @@ pub enum Encoder {
 
 pub struct Compress<'a> {
     data: Tokens,
-    pipeline: &'a [Encoder],
+    pipeline: &'a [Encode],
 }
 
 impl<'a> Compress<'a> {
-    pub fn new(data: Vec<u8>, pipeline: &'a [Encoder]) -> Self {
+    pub fn new(data: Vec<u8>, pipeline: &'a [Encode]) -> Self {
         Self {
             data: Tokens::new(data),
             pipeline,
@@ -35,9 +33,9 @@ impl<'a> Compress<'a> {
     pub fn compress(&mut self) -> &Tokens {
         for encoder in self.pipeline.iter() {
             match encoder {
-                Encoder::Bwt => self.data.encode_bwt(),
-                Encoder::Rle => self.data.encode_rle(),
-                Encoder::Mtf => self.data.encode_mtf(),
+                Encode::Bwt => self.data.encode_bwt(),
+                Encode::Rle => self.data.encode_rle(),
+                Encode::Mtf => self.data.encode_mtf(),
             };
         }
         return &self.data;
@@ -46,12 +44,11 @@ impl<'a> Compress<'a> {
     pub fn decompress(&mut self) -> &Tokens {
         for encoder in self.pipeline.iter().rev() {
             match encoder {
-                Encoder::Bwt => self.data.decode_bwt(),
-                Encoder::Rle => self.data.decode_rle(),
-                Encoder::Mtf => self.data.decode_mtf(),
+                Encode::Bwt => self.data.decode_bwt(),
+                Encode::Rle => self.data.decode_rle(),
+                Encode::Mtf => self.data.decode_mtf(),
             };
         }
         return &self.data;
     }
 }
-
