@@ -1,4 +1,4 @@
-use super::{bwt::Bwt, mtf::Mtf, rle::Rle};
+use super::{bwt::Bwt, huff::Huff, mtf::Mtf, rle::Rle};
 
 #[derive(Clone, Debug)]
 pub struct Tokens(pub Vec<u8>);
@@ -15,6 +15,7 @@ pub enum Encode {
     Bwt,
     Rle,
     Mtf,
+    Huff,
 }
 
 pub struct Compress<'a> {
@@ -36,6 +37,7 @@ impl<'a> Compress<'a> {
                 Encode::Bwt => self.data.encode_bwt(),
                 Encode::Rle => self.data.encode_rle(),
                 Encode::Mtf => self.data.encode_mtf(),
+                Encode::Huff => self.data.encode_huff(),
             };
         }
         return &self.data;
@@ -47,6 +49,7 @@ impl<'a> Compress<'a> {
                 Encode::Bwt => self.data.decode_bwt(),
                 Encode::Rle => self.data.decode_rle(),
                 Encode::Mtf => self.data.decode_mtf(),
+                Encode::Huff => self.data.decode_huff(),
             };
         }
         return &self.data;
