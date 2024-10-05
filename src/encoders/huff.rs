@@ -71,6 +71,8 @@ impl Huff for Tokens {
         header.iter().for_each(|b| print!("{:08b} ", b));
         println!();
 
+        let data: Vec<u8> = vec![];
+
         let mut current_byte: u8 = 0x0;
         for &byte in self.0.iter() {
             
