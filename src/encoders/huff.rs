@@ -1,18 +1,14 @@
 use colored::Colorize;
+use queue::Queue;
 
 use super::encoder::Tokens;
 
 // Huffman Encoding
 
-#[derive(Debug)]
-enum Node {
-    Leaf(u8),
-    Internal,
-}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct HuffNode {
-    node_type: Node,
+    byte: Option<u8>,
     frequency: usize,
     left: Option<Box<HuffNode>>,
     right: Option<Box<HuffNode>>,
@@ -35,7 +31,7 @@ impl Huff for Tokens {
             match count > 0 {
                 true => {
                     Some(HuffNode {
-                        node_type: Node::Leaf(byte as u8),
+                        byte: Some(byte as u8),
                         frequency: count,
                         left: None,
                         right: None,
@@ -57,7 +53,7 @@ impl Huff for Tokens {
             println!("{} {:?}", "Popped".red(), n1);
             println!("{} {:?}", "Popped".red(), n2);
             let combined_node = HuffNode {
-                node_type: Node::Internal,
+                byte: None,
                 frequency: n1.frequency + n2.frequency,
                 left: Some(Box::new(n1)),
                 right: Some(Box::new(n2)),  
@@ -67,14 +63,31 @@ impl Huff for Tokens {
             freq_map.push(combined_node);
         }
         
-        println!("{:?}", freq_map);
-        println!("{}", freq_map[0].frequency);
+        let root = freq_map.pop().expect("Expected there to be more than 0 HuffNodes");
+        let root = Some(Box::new(root));
+        let mut header = Vec::new();
+        encode_huff_tree(&root, &mut header);
 
+        header.iter().for_each(|b| print!("{:08b} ", b));
+        println!();
+
+        let mut current_byte: u8 = 0x0;
+        for &byte in self.0.iter() {
+            
+        }
 
         todo!()
     }
 
     fn decode_huff(&mut self) -> &mut Self {
         todo!()
+    }
+}
+
+fn encode_huff_tree(node: &Option<Box<HuffNode>>, arr: &mut Vec<u8>) {
+    if let Some(ref n) = node {
+        arr.push(n.byte.unwrap_or(0));
+        encode_huff_tree(&n.left, arr);
+        encode_huff_tree(&n.right, arr);
     }
 }

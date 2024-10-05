@@ -9,9 +9,10 @@ impl Tokens {
     }
 }
 
+/// Defines the various types of Encoding Algorithms
 #[allow(unused)]
 #[derive(Clone, Copy, Debug)]
-pub enum Encode {
+pub enum Encoding {
     Bwt,
     Rle,
     Mtf,
@@ -20,11 +21,11 @@ pub enum Encode {
 
 pub struct Compress<'a> {
     data: Tokens,
-    pipeline: &'a [Encode],
+    pipeline: &'a [Encoding],
 }
 
 impl<'a> Compress<'a> {
-    pub fn new(data: Vec<u8>, pipeline: &'a [Encode]) -> Self {
+    pub fn new(data: Vec<u8>, pipeline: &'a [Encoding]) -> Self {
         Self {
             data: Tokens::new(data),
             pipeline,
@@ -34,10 +35,10 @@ impl<'a> Compress<'a> {
     pub fn compress(&mut self) -> &Tokens {
         for encoder in self.pipeline.iter() {
             match encoder {
-                Encode::Bwt => self.data.encode_bwt(),
-                Encode::Rle => self.data.encode_rle(),
-                Encode::Mtf => self.data.encode_mtf(),
-                Encode::Huff => self.data.encode_huff(),
+                Encoding::Bwt => self.data.encode_bwt(),
+                Encoding::Rle => self.data.encode_rle(),
+                Encoding::Mtf => self.data.encode_mtf(),
+                Encoding::Huff => self.data.encode_huff(),
             };
         }
         return &self.data;
@@ -46,10 +47,10 @@ impl<'a> Compress<'a> {
     pub fn decompress(&mut self) -> &Tokens {
         for encoder in self.pipeline.iter().rev() {
             match encoder {
-                Encode::Bwt => self.data.decode_bwt(),
-                Encode::Rle => self.data.decode_rle(),
-                Encode::Mtf => self.data.decode_mtf(),
-                Encode::Huff => self.data.decode_huff(),
+                Encoding::Bwt => self.data.decode_bwt(),
+                Encoding::Rle => self.data.decode_rle(),
+                Encoding::Mtf => self.data.decode_mtf(),
+                Encoding::Huff => self.data.decode_huff(),
             };
         }
         return &self.data;

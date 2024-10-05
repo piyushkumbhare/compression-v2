@@ -1,4 +1,5 @@
 use super::encoder::Tokens;
+use crate::index_of;
 
 /*
     This MTF Encoder is based off of an Adaptive-MTF algorithm by Brandon Simmons.
@@ -52,6 +53,8 @@ impl Mtf for Tokens {
         if self.0.len() == 0 {
             return self
         }
+
+        // Start with empty alphabet and append to it as we find more
         let mut alphabet: Vec<u8> = vec![];
         let mut data: Vec<u8> = vec![];
         self.0.iter().for_each(|&byte| match index_of(&alphabet, &byte) {
@@ -67,8 +70,10 @@ impl Mtf for Tokens {
                 data.push((alphabet.len() - 1) as u8);
             }
         });
+        // Indicate the end of the alphabet by appending the first byte again
         alphabet.push(*alphabet.first().expect("There should have been an alphabet lol..."));
 
+        // Append the header & data together
         alphabet.append(&mut data);
         self.0 = alphabet;
         self
@@ -78,6 +83,8 @@ impl Mtf for Tokens {
         let mut alphabet: Vec<u8> = vec![];
         let mut output: Vec<u8> = vec![];
         let mut indices: &[u8] = &[];
+        
+        // Split the input at the second occurance of the first byte
         for (index, &byte) in self.0.iter().enumerate() {
             if alphabet.len() > 1 && *alphabet.first().unwrap() == byte {
                 indices = self.0.get(index + 1..).unwrap();
@@ -98,14 +105,3 @@ impl Mtf for Tokens {
 
 }
 
-fn index_of<T>(v: &Vec<T>, obj: &T) -> Option<usize>
-where
-    T: Eq,
-{
-    for index in 0..v.len() {
-        if v[index] == *obj {
-            return Some(index);
-        }
-    }
-    None
-}

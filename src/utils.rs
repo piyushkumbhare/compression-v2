@@ -122,3 +122,16 @@ pub fn get_file_size(path: &str) -> io::Result<u64> {
         return Ok(metadata(path)?.st_size());
     }
 }
+
+/// Returns the index of the first instance of an object
+pub fn index_of<T>(v: &Vec<T>, obj: &T) -> Option<usize>
+where
+    T: Eq,
+{
+    for index in 0..v.len() {
+        if v[index] == *obj {
+            return Some(index);
+        }
+    }
+    None
+}
