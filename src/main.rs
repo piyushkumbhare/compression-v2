@@ -26,7 +26,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let input_size = get_file_size(&input_path)?;
 
     // Define the compression stages to use
-    let mut compressor = Compress::new(buf, &[Encoding::Huff]);
+    let mut compressor = Compress::new(
+        buf,
+        &[Encoding::Bwt, Encoding::Mtf, Encoding::Rle, Encoding::Huff],
+    );
 
     // Encode & write to `.pkz` file
     let output = compressor.compress();
