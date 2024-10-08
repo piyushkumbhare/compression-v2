@@ -6,48 +6,9 @@ use std::{
 use colored::Colorize;
 
 use super::encoder::Tokens;
+use super::huff_helper::*;
 
 // Huffman Encoding
-
-// A node in the Huffman Tree
-#[derive(Debug, Clone, Eq, PartialEq)]
-struct EncodeNode {
-    frequency: usize,
-    byte: Option<u8>,
-    left: Option<Box<EncodeNode>>,
-    right: Option<Box<EncodeNode>>,
-}
-
-/// Implementing PartialOrd manually is required since
-/// the derive macro lexicographically orders the fields of the struct,
-/// which is NOT what we want
-impl PartialOrd for EncodeNode {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-/// Instead, we define our own Ordering for a HuffNode.
-/// 2 Nodes are compared in the following order of precedence
-///
-/// 1. Their frequencies are compared
-/// 2. Internal/Leaf status. Internal < Leaf
-/// 3. Byte value associated with the Leaf (in the case of Leaf vs Leaf)
-impl Ord for EncodeNode {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if self.frequency != other.frequency {
-            self.frequency.cmp(&other.frequency)
-        } else {
-            use std::cmp::Ordering;
-            match (self.byte, other.byte) {
-                (None, None) => Ordering::Equal,
-                (None, Some(_)) => Ordering::Less,
-                (Some(_), None) => Ordering::Greater,
-                (Some(b1), Some(b2)) => b1.cmp(&b2),
-            }
-        }
-    }
-}
 
 pub trait Huff {
     fn encode_huff(&mut self) -> &mut Self;
@@ -112,7 +73,7 @@ impl Huff for Tokens {
             .pop()
             .expect("Expected there to be more than 0 HuffNodes");
         let root = Some(Box::new(root));
-        
+
         // Serialize the huffman tree
 
         let mut preorder = vec![];
@@ -120,40 +81,49 @@ impl Huff for Tokens {
 
         let mut inorder = vec![];
         in_order(&root, &mut inorder);
-        
-        
+
         let mut ser_pre = vec![];
         for node in preorder {
             match node {
                 Some(b) => {
                     ser_pre.push(1);
                     ser_pre.push(b);
-                },
+                }
                 None => ser_pre.push(0),
             }
         }
-        
+
         let mut ser_in = vec![];
         for node in inorder {
             match node {
                 Some(b) => {
                     ser_in.push(1);
                     ser_in.push(b);
-                },
+                }
                 None => ser_in.push(0),
             }
         }
-        
+
         println!("Pre: {:?}", ser_pre);
         println!("In: {:?}", ser_in);
 
-
         // We prepend the length of the file and tree (as u64s)
         // This tells the decoder where the padding zeroes begin in both the tree and the data.
-        let mut header: Vec<u8> = (self.0.len() as u64).to_be_bytes().into();
+        let mut header = Vec::new();
 
+        let mut file_len: Vec<u8> = (self.0.len() as u64).to_be_bytes().into();
+        header.append(&mut file_len);
 
+        let mut tree_len: Vec<u8> = (ser_pre.len() as u64).to_be_bytes().into();
+        header.append(&mut tree_len);
 
+        header.append(&mut ser_pre);
+        header.append(&mut ser_in);
+
+        // Encode the actual data via Huffman Coding
+        // Use a HashMap to cache paths, and perform the traversal on a miss
+        // The path will then be encoded into a byte, with up to
+        // 7 extra bits being added as padding (all will be 0's)
         let mut paths: HashMap<u8, Vec<u8>> = HashMap::new();
         let mut output_data: Vec<u8> = vec![];
         let mut current_byte: u8 = 0;
@@ -192,103 +162,73 @@ impl Huff for Tokens {
     }
 
     fn decode_huff(&mut self) -> &mut Self {
-        todo!();
         if self.0.len() == 0 {
             return self;
         }
-        let (file_len, data) = self.0.split_at(8);
-        let file_len = u64::from_be_bytes(file_len[0..8].try_into().unwrap());
 
-        let (tree_len, data) = data.split_at(8);
-        let tree_len = u64::from_be_bytes(tree_len[0..8].try_into().unwrap());
+        // Decode the header which contains the following in order:
+        // file length: 8 bytes
+        // tree length: 8 bytes
+        // preorder: tree_len bytes
+        // inorder: tree_len bytes
+        // data: rest of the file (we stop reading bits after file_len bits)
+        let (file_len, rest) = self.0.split_at(8);
+        let file_len = u64::from_be_bytes(file_len.try_into().unwrap());
 
-        let (preorder, data) = data.split_at(tree_len as usize);
-        let (inorder, data) = data.split_at(tree_len as usize);
+        let (tree_len, rest) = rest.split_at(8);
+        let tree_len = u64::from_be_bytes(tree_len.try_into().unwrap());
+
+        let (preorder, rest) = rest.split_at(tree_len as usize);
+        let (inorder, data) = rest.split_at(tree_len as usize);
 
         println!("File is {file_len} bytes long");
         println!("Tree is {tree_len} bytes long");
+
+        let mut pre_iter = preorder.iter();
+        let mut preorder = vec![];
+        while let Some(&byte) = pre_iter.next() {
+            match byte {
+                0 => {
+                    preorder.push(None);
+                }
+                1 => {
+                    preorder.push(Some(*pre_iter.next().unwrap()));
+                },
+                _ => panic!("Found an unexpected byte"),
+            }
+        }
+
+        let mut in_iter = inorder.iter();
+        let mut inorder = vec![];
+        while let Some(&byte) = in_iter.next() {
+            match byte {
+                0 => {
+                    inorder.push(None);
+                }
+                1 => {
+                    inorder.push(Some(*in_iter.next().unwrap()));
+                },
+                _ => panic!("Found an unexpected byte"),
+            }
+        }
+
+        println!("{:?}", preorder);
+        println!("{:?}", inorder);
+        
+        let (pre_mapped, in_mapped) = map_to_reconstruct(preorder, inorder);
+        
+        println!("Mapped Inorder: {:?}", in_mapped);
+        println!("Mapped Preorder: {:?}", pre_mapped);
+        
+        let root_mapped = build_tree(pre_mapped, in_mapped);
+
+        println!("{:#?}", root_mapped);
+
 
         println!("Data:");
         data.iter().for_each(|b| print!("{:08b} ", b));
         println!();
 
-        // Create the preorder array
-        let mut preorder_tree: Vec<Option<u8>> = vec![];
-        let mut preorder = preorder.iter();
-        while let Some(byte) = preorder.next() {
-            let current_node = match byte {
-                0 => None,
-                1 => Some(
-                    *preorder
-                        .next()
-                        .expect("Expected to find leaf node after 1 marker"),
-                ),
-                _ => panic!("Found an error byte in Huffman Tree"),
-            };
-            preorder_tree.push(current_node);
-        }
-        println!("Preorder: {:?}", preorder_tree);
-
-        // Create the inorder array
-        let mut inorder_tree: Vec<Option<u8>> = vec![];
-        let mut inorder = inorder.iter();
-        while let Some(byte) = inorder.next() {
-            let current_node = match byte {
-                0 => None,
-                1 => Some(
-                    *inorder
-                        .next()
-                        .expect("Expected to find leaf node after 1 marker"),
-                ),
-                _ => panic!("Found an error byte in Huffman Tree"),
-            };
-            inorder_tree.push(current_node);
-        }
-        println!("Inorder: {:?}", inorder_tree);
-
-
         todo!()
     }
 }
-
-
-fn pre_order(node: &Option<Box<EncodeNode>>, arr: &mut Vec<Option<u8>>) {
-    if let Some(ref n) = node {
-        arr.push(n.byte);
-        pre_order(&node.as_ref().unwrap().left, arr);
-        pre_order(&node.as_ref().unwrap().right, arr);
-    }
-}
-
-
-fn in_order(node: &Option<Box<EncodeNode>>, arr: &mut Vec<Option<u8>>) {
-    if let Some(ref n) = node {
-        in_order(&node.as_ref().unwrap().left, arr);
-        arr.push(n.byte);
-        in_order(&node.as_ref().unwrap().right, arr);
-    }
-}
-
-/// Recursive backtracking function to trace and return the path to a given byte
-/// in the Huffman tree
-fn encode_byte(node: &Option<Box<EncodeNode>>, byte: u8, path: &mut Vec<u8>) -> bool {
-    if let Some(ref n) = node {
-        match n.byte {
-            Some(b) => b == byte,
-            None => {
-                let left = encode_byte(&n.left, byte, path);
-                let right = encode_byte(&n.right, byte, path);
-                if left {
-                    path.push(0);
-                } else if right {
-                    path.push(1);
-                }
-                return left || right;
-            }
-        }
-    } else {
-        false
-    }
-}
-
-
