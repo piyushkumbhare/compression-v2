@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Define the compression stages to use
     let mut compressor = Compress::new(
         buf,
-        &[Encoding::Bwt, Encoding::Mtf, Encoding::Rle, Encoding::Huff],
+        &[Encoding::Huff],
     );
 
     // Encode & write to `.pkz` file
