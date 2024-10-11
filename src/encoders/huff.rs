@@ -217,12 +217,12 @@ impl Huff for Tokens {
         
         let (pre_mapped, in_mapped) = map_to_reconstruct(preorder, inorder);
         
-        println!("Mapped Inorder: {:?}", in_mapped);
         println!("Mapped Preorder: {:?}", pre_mapped);
+        println!("Mapped Inorder: {:?}", in_mapped);
         
-        let root_mapped = build_tree(pre_mapped, in_mapped);
+        let mapped_root = build_tree(&pre_mapped[..], &in_mapped[..]);
 
-        println!("{:#?}", root_mapped);
+        println!("{:#?}", mapped_root);
 
 
         println!("Data:");

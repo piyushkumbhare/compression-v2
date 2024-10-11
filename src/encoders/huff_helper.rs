@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 use crate::enumerate_duplicates;
 
@@ -95,44 +95,31 @@ pub struct ReconstructNode {
     pub right: Option<Box<ReconstructNode>>,
 }
 
-pub fn build_tree(preorder: Vec<usize>, inorder: Vec<usize>) -> Option<Box<ReconstructNode>> {
-    let mut root = ReconstructNode {
-        val: preorder[0],
-        left: None,
-        right: None,
-    };
-    // Split the inorder vec
-    println!("Looking for {}", preorder[0]);
-    let i = inorder.iter().position(|&x| x == preorder[0])?;
-    println!("Found i = {i}");
-    let inorder_left = inorder[0..i].to_vec();
-    let inorder_right = inorder[i + 1..].to_vec();
-
-    println!("Left, Right = {:?}, {:?}", inorder_left, inorder_right);
-    // Split the preorder vec
-    let preorder_left = preorder[1..1 + inorder_left.len()].to_vec();
-    let preorder_right = preorder[1 + inorder_left.len()..].to_vec();
-
-    if inorder_left.len() > 0 {
-        root.left = build_tree(preorder_left, inorder_left);
+pub fn build_tree(preorder: &[usize], inorder: &[usize]) -> Option<Box<ReconstructNode>> {
+    if preorder.len() == 0 || inorder.len() == 0 {
+        return None;
     }
-    if inorder_right.len() > 0 {
-        root.right = build_tree(preorder_right, inorder_right);
-    }
+    let mut root = Some(Box::new(ReconstructNode { val: preorder[0], left: None, right: None }));
 
-    Some(Box::new(root))
+    let mid = inorder.iter().position(|&r| r == preorder[0]).unwrap();
+    root.as_mut().unwrap().left =
+        build_tree(&preorder[1..mid + 1], &inorder[0..mid]);
+    root.as_mut().unwrap().right =
+        build_tree(&preorder[mid + 1..], &inorder[mid + 1..]);
+
+    return root;
 }
 
-pub fn map_to_reconstruct(
-    preorder: Vec<Option<u8>>,
-    inorder: Vec<Option<u8>>,
+pub fn map_to_reconstruct<T: Hash + Eq + Clone>(
+    preorder: Vec<T>,
+    inorder: Vec<T>,
 ) -> (Vec<usize>, Vec<usize>) {
     let preorder = enumerate_duplicates(preorder);
     let inorder = enumerate_duplicates(inorder);
 
-    let mut map: HashMap<(Option<u8>, usize), usize> = HashMap::new();
+    let mut map: HashMap<_, usize> = HashMap::new();
 
-    for (index, &elem) in inorder.iter().enumerate() {
+    for (index, elem) in inorder.iter().enumerate() {
         map.insert(elem, index);
     }
 
@@ -144,3 +131,4 @@ pub fn map_to_reconstruct(
         (0..inorder.len()).collect(),
     )
 }
+

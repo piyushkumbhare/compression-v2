@@ -1,6 +1,7 @@
 // #![allow(unused)]
 mod encoders;
 mod utils;
+mod tests;
 
 use encoder::{Compress, Encoding};
 use encoders::*;
@@ -11,6 +12,7 @@ use std::error::Error;
 use clap::Parser;
 use colored::Colorize;
 use sha256::digest;
+
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
