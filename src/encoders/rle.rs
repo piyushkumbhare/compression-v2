@@ -69,7 +69,7 @@ impl Rle for Tokens {
 
         let mut output: Vec<u8> = vec![];
 
-        let mut bytes = bytes.iter().peekable();
+        let mut bytes = bytes.iter();
         while let Some(&b) = bytes.next() {
             if b == b'\\' {
                 if let Some(&next) = bytes.next() {

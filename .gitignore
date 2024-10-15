@@ -1,3 +1,4 @@
 /target
-./*.pkz
-./*.decoded
+hexdump_rust*
+*.pkz
+*.decoded

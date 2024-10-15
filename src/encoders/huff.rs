@@ -1,9 +1,5 @@
-use std::{
-    collections::HashMap,
-    fmt::{Debug, Display, Write},
-};
+use std::collections::HashMap;
 
-use colored::Colorize;
 
 use super::encoder::Tokens;
 use super::huff_helper::*;
@@ -29,12 +25,12 @@ impl Huff for Tokens {
         });
 
         // Iterate through and construct HuffNodes for all non-zero frequency bytes
-        let mut freq_map: Vec<EncodeNode> = freq_map
+        let mut freq_map: Vec<HuffmanNode> = freq_map
             .iter()
             .enumerate()
             .filter_map(|(byte, &count)| match count > 0 {
-                true => Some(EncodeNode {
-                    byte: Some(byte as u8),
+                true => Some(HuffmanNode {
+                    byte: Node::Leaf(byte as u8),
                     frequency: count,
                     left: None,
                     right: None,
@@ -48,6 +44,8 @@ impl Huff for Tokens {
         // Combine into 1 node
         // Reinsert node
         // Repeat until one node is left
+
+        let mut internal_count = 0;
         while freq_map.len() > 1 {
             freq_map.sort();
             // Reverse so push and pop are zero-cost (least freq at end)
@@ -58,12 +56,14 @@ impl Huff for Tokens {
 
             // When creating a parent node, convention is to place
             // the smaller of the 2 children on the left
-            let combined_node = EncodeNode {
-                byte: None,
+            let combined_node = HuffmanNode {
+                byte: Node::Internal(internal_count),
                 frequency: n1.frequency + n2.frequency,
                 left: Some(Box::new(n1)),
                 right: Some(Box::new(n2)),
             };
+
+            internal_count += 1;
 
             // TODO: make this insertion to avoid resorting of array
             freq_map.push(combined_node);
@@ -82,52 +82,64 @@ impl Huff for Tokens {
         let mut inorder = vec![];
         in_order(&root, &mut inorder);
 
-        let mut ser_pre = vec![];
+        let mut prebytes = vec![];
         for node in preorder {
             match node {
-                Some(b) => {
-                    ser_pre.push(1);
-                    ser_pre.push(b);
+                Node::Leaf(b) => {
+                    prebytes.push(1);
+                    prebytes.push(b);
                 }
-                None => ser_pre.push(0),
+                Node::Internal(b) => {
+                    prebytes.push(0);
+                    prebytes.push(b);
+                },
             }
         }
 
-        let mut ser_in = vec![];
+        let mut inbytes = vec![];
         for node in inorder {
             match node {
-                Some(b) => {
-                    ser_in.push(1);
-                    ser_in.push(b);
+                Node::Leaf(b) => {
+                    inbytes.push(1);
+                    inbytes.push(b);
                 }
-                None => ser_in.push(0),
+                Node::Internal(b) => {
+                    inbytes.push(0);
+                    inbytes.push(b);
+                },
             }
         }
 
-        println!("Pre: {:?}", ser_pre);
-        println!("In: {:?}", ser_in);
+        println!("Encoding: File is {} bytes long", self.0.len());
+        println!("Encoding: Tree is {} bytes long", prebytes.len());
 
-        // We prepend the length of the file and tree (as u64s)
-        // This tells the decoder where the padding zeroes begin in both the tree and the data.
-        let mut header = Vec::new();
+        // Defines the bytes for the final output.
+        let mut file_contents = Vec::new();
 
+        // The final output file will have the following in this order:
+        // 1. Serialized Huffman Tree length (in bytes)
+        // 2. Pre-order traversal of Huffman Tree
+        // 3. In-order traversal of Huffman Tree
+        // 4. Expected length of decoded file (in bytes)
+        // 5. Encoded data of file
+        let mut tree_len: Vec<u8> = (prebytes.len() as u64).to_be_bytes().into();
+        file_contents.append(&mut tree_len);
+        
+        file_contents.append(&mut prebytes);
+        file_contents.append(&mut inbytes);
+        
         let mut file_len: Vec<u8> = (self.0.len() as u64).to_be_bytes().into();
-        header.append(&mut file_len);
+        file_contents.append(&mut file_len);
 
-        let mut tree_len: Vec<u8> = (ser_pre.len() as u64).to_be_bytes().into();
-        header.append(&mut tree_len);
-
-        header.append(&mut ser_pre);
-        header.append(&mut ser_in);
 
         // Encode the actual data via Huffman Coding
-        // Use a HashMap to cache paths, and perform the traversal on a miss
+        // Retrieve seen paths from a HashMap, manually perform the traversal on a miss
         // The path will then be encoded into a byte, with up to
         // 7 extra bits being added as padding (all will be 0's)
         let mut paths: HashMap<u8, Vec<u8>> = HashMap::new();
         let mut output_data: Vec<u8> = vec![];
         let mut current_byte: u8 = 0;
-        let mut byte_length: u8 = 0;
+        let mut num_bits: u8 = 0;
 
         for &byte in self.0.iter() {
             let path = match paths.get(&byte) {
@@ -142,22 +154,22 @@ impl Huff for Tokens {
             };
 
             for turn in path {
-                if byte_length > 7 {
+                if num_bits > 7 {
                     output_data.push(current_byte);
                     current_byte = 0;
-                    byte_length = 0;
+                    num_bits = 0;
                 }
 
-                current_byte |= turn << (7 - byte_length);
-                byte_length += 1;
+                current_byte |= turn << (7 - num_bits);
+                num_bits += 1;
             }
         }
-        if byte_length > 0 {
+        if num_bits > 0 {
             output_data.push(current_byte);
         }
 
-        header.append(&mut output_data);
-        self.0 = header;
+        file_contents.append(&mut output_data);
+        self.0 = file_contents;
         self
     }
 
@@ -172,28 +184,29 @@ impl Huff for Tokens {
         // preorder: tree_len bytes
         // inorder: tree_len bytes
         // data: rest of the file (we stop reading bits after file_len bits)
-        let (file_len, rest) = self.0.split_at(8);
+        
+        let (tree_len, rest) = self.0.split_at(8);
+        let tree_len = u64::from_be_bytes(tree_len.try_into().unwrap());
+        
+        let (preorder, rest) = rest.split_at(tree_len as usize);
+        let (inorder, rest) = rest.split_at(tree_len as usize);
+        
+        let (file_len, data) = rest.split_at(8);
         let file_len = u64::from_be_bytes(file_len.try_into().unwrap());
 
-        let (tree_len, rest) = rest.split_at(8);
-        let tree_len = u64::from_be_bytes(tree_len.try_into().unwrap());
-
-        let (preorder, rest) = rest.split_at(tree_len as usize);
-        let (inorder, data) = rest.split_at(tree_len as usize);
-
-        println!("File is {file_len} bytes long");
-        println!("Tree is {tree_len} bytes long");
+        println!("Decoding: File is {file_len} bytes long");
+        println!("Decoding: Tree is {tree_len} bytes long");
 
         let mut pre_iter = preorder.iter();
         let mut preorder = vec![];
         while let Some(&byte) = pre_iter.next() {
             match byte {
                 0 => {
-                    preorder.push(None);
+                    preorder.push(Node::Internal(*pre_iter.next().unwrap()));
                 }
                 1 => {
-                    preorder.push(Some(*pre_iter.next().unwrap()));
-                },
+                    preorder.push(Node::Leaf(*pre_iter.next().unwrap()));
+                }
                 _ => panic!("Found an unexpected byte"),
             }
         }
@@ -203,32 +216,50 @@ impl Huff for Tokens {
         while let Some(&byte) = in_iter.next() {
             match byte {
                 0 => {
-                    inorder.push(None);
+                    inorder.push(Node::Internal(*in_iter.next().unwrap()));
                 }
                 1 => {
-                    inorder.push(Some(*in_iter.next().unwrap()));
-                },
+                    inorder.push(Node::Leaf(*in_iter.next().unwrap()));
+                }
                 _ => panic!("Found an unexpected byte"),
             }
         }
 
-        println!("{:?}", preorder);
-        println!("{:?}", inorder);
-        
-        let (pre_mapped, in_mapped) = map_to_reconstruct(preorder, inorder);
-        
-        println!("Mapped Preorder: {:?}", pre_mapped);
-        println!("Mapped Inorder: {:?}", in_mapped);
-        
-        let mapped_root = build_tree(&pre_mapped[..], &in_mapped[..]);
+        let root = build_tree(&preorder[..], &inorder[..]);
 
-        println!("{:#?}", mapped_root);
+        let mut data_iter = data.into_iter();
+        let mut current_byte = data_iter.next().unwrap();
+        let mut num_bits = 0;
 
-
-        println!("Data:");
-        data.iter().for_each(|b| print!("{:08b} ", b));
-        println!();
-
-        todo!()
+        let mut output_data = vec![];
+        while output_data.len() < file_len as usize {
+            let mut current_node = root.as_ref().unwrap();
+            while matches!(current_node.byte, Node::Internal(_)) {
+                if num_bits > 7 {
+                    current_byte = data_iter.next().unwrap();
+                    num_bits = 0;
+                }
+                
+                match 0x1 & (current_byte >> (7 - num_bits)) {
+                    0 => {
+                        current_node = current_node.left.as_ref().expect("Expected to find a Huffman Node here.");
+                    },
+                    1 => {
+                        current_node = current_node.right.as_ref().expect("Expected to find a Huffman Node here.");
+                    },
+                    _ => {
+                        panic!("Bit level error when &ing with 0x0");
+                    }
+                }
+                num_bits += 1;                    
+            }
+            if let Node::Leaf(b) = current_node.byte {
+                output_data.push(b);
+            } else {
+                panic!("Huffman decoding ended on an internal node somehow.")
+            }
+        }
+        self.0 = output_data;
+        self
     }
 }

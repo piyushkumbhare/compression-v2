@@ -1,7 +1,7 @@
 // #![allow(unused)]
 mod encoders;
-mod utils;
 mod tests;
+mod utils;
 
 use encoder::{Compress, Encoding};
 use encoders::*;
@@ -12,7 +12,6 @@ use std::error::Error;
 use clap::Parser;
 use colored::Colorize;
 use sha256::digest;
-
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
@@ -30,7 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Define the compression stages to use
     let mut compressor = Compress::new(
         buf,
-        &[Encoding::Huff],
+        &[Encoding::Rle],
     );
 
     // Encode & write to `.pkz` file

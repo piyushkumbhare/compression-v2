@@ -83,7 +83,7 @@ impl Bwt for Tokens {
 
         let delim_pos_b36 = format_radix(delim_pos as u32, 36);
 
-        println!("Placing delim at position {delim_pos} = {}", delim_pos_b36);
+        println!("Encoding: Placing delim at position {delim_pos} = {}", delim_pos_b36);
 
         let mut final_output = format!("{}|", delim_pos_b36).into_bytes();
         final_output.append(&mut encoded_output);
@@ -100,13 +100,15 @@ impl Bwt for Tokens {
             .position(|&b| b == b'|')
             .expect("Unable to find BWT delimiter '|'");
 
+        
         let (header, data) = self.0.split_at(split_index);
         let header: String = header.iter().map(|b| char::from(*b)).collect();
         let data = data.get(1..).expect("Unable to split bytes at '|'");
 
         let delim_pos = usize::from_str_radix(&header, 36)
-            .expect(format!("Unable to parse `{header}` ({:?}) into a b36 number", header).as_str());
+            .expect(format!("Unable to parse `{header}` into a b36 number").as_str());
 
+        println!("Decoding: Placing delim at {delim_pos}");
         // Convert all bytes to Tokens & insert the Delim based on header
         let mut tokens: Vec<Token> = data.iter().map(|&b| Token::Byte(b)).collect();
         tokens.insert(delim_pos, Token::Delim);
