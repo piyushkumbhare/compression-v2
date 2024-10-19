@@ -70,6 +70,16 @@ impl Mtf for Tokens {
                 data.push((alphabet.len() - 1) as u8);
             }
         });
+        println!("Using alphabet (ASCII representation):");
+        alphabet.iter().for_each(|&b| {
+            let c = match b {
+                32..=126 => char::from(b),
+                _ => '.',
+            };
+            print!("{c}");
+        });
+        println!();
+
         // Indicate the end of the alphabet by appending the first byte again
         alphabet.push(*alphabet.first().expect("There should have been an alphabet lol..."));
 
@@ -92,6 +102,16 @@ impl Mtf for Tokens {
             }
             alphabet.push(byte);
         }
+
+        println!("Found alphabet (ASCII representation):");
+        alphabet.iter().for_each(|&b| {
+            let c = match b {
+                32..=126 => char::from(b),
+                _ => '.',
+            };
+            print!("{c}");
+        });
+        println!();
         let indices: Vec<u8> = indices.into();
 
         for &index in indices.iter().rev() {

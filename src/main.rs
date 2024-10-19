@@ -29,7 +29,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Define the compression stages to use
     let mut compressor = Compress::new(
         buf,
-        &[Encoding::Rle],
+        {
+            use Encoding::*;
+            &[Bwt, Mtf, Rle, Huff]
+        },
     );
 
     // Encode & write to `.pkz` file
@@ -53,9 +56,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     {decoded_path} - {decoded_size}
 
     Total compression: {:0.2}%
+    
+    {}
 
     "#,
         percent,
+        format!("The compressed file is {:0.2}% of its original size!", 100.0 - percent).bold(),
     );
 
     let new_sha256 = digest(&decoded.0);

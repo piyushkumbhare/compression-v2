@@ -1,0 +1,1 @@
+Here's an example text file. As you can probably guess, small files like this one won't do too well under a heavy compression algorithm like this one. So if you do look at the sizes, this file's compressed version shouldn't be too much smaller (if at all) than the original.

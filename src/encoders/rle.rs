@@ -1,3 +1,5 @@
+use std::ops::Div;
+
 use super::encoder::*;
 use crate::*;
 
@@ -19,6 +21,7 @@ impl Rle for Tokens {
 
         let mut output: Vec<u8> = vec![];
         let delim = get_least_used_byte(&self.0);
+        println!("Using {delim} as delim");
 
         insert_before_target(&mut self.0, b'\\', b'\\');
         insert_before_target(&mut self.0, delim, b'\\');
@@ -33,7 +36,7 @@ impl Rle for Tokens {
             if current_byte != last_byte || count == u8::MAX {
                 if count < MIN_REPEAT_COUNT {
                     // If we're under the minimum repeat count, append the raw bytes as is
-                    output.append(&mut vec![last_byte; count as usize]);
+                    (0..count).into_iter().for_each(|_| output.push(last_byte));
                 } else {
                     // Otherwise, it means MIN < count <= MAX, so we append the encoding
                     output.push(delim);
@@ -47,12 +50,12 @@ impl Rle for Tokens {
             last_byte = current_byte;
         }
         // Deal with the last byte
-        if MIN_REPEAT_COUNT < count {
+        if MIN_REPEAT_COUNT <= count {
             output.push(delim);
             output.push(count);
             output.push(last_byte);
         } else {
-            output.append(&mut vec![last_byte; count as usize]);
+            (0..count).into_iter().for_each(|_| output.push(last_byte));
         }
 
         output.insert(0, delim);
@@ -66,23 +69,31 @@ impl Rle for Tokens {
         }
 
         let (&delim, bytes) = self.0.split_first().unwrap();
+        println!("Found delim {delim}");
 
         let mut output: Vec<u8> = vec![];
+
 
         let mut bytes = bytes.iter();
         while let Some(&b) = bytes.next() {
             if b == b'\\' {
-                if let Some(&next) = bytes.next() {
-                    output.push(next);
-                }
+                output.push(*bytes.next().unwrap());
             } else if b == delim {
-                let count = bytes.next().unwrap();
+                let mut count = *bytes.next().unwrap();
                 let byte_to_repeat = bytes.next().unwrap();
-                output.append(&mut vec![*byte_to_repeat; *count as usize]);
+                if *byte_to_repeat == b'\\' {
+                    count = count.div(2);
+                }
+                (0..count)
+                    .into_iter()
+                    .for_each(|_| output.push(*byte_to_repeat));
             } else {
                 output.push(b);
             }
         }
+
+        
+
         self.0 = output;
         self
     }

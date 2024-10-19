@@ -1,3 +1,5 @@
+use colored::Colorize;
+
 use super::{bwt::Bwt, huff::Huff, mtf::Mtf, rle::Rle};
 
 #[derive(Clone, Debug)]
@@ -35,10 +37,22 @@ impl<'a> Compress<'a> {
     pub fn compress(&mut self) -> &Tokens {
         for encoder in self.pipeline.iter() {
             match encoder {
-                Encoding::Bwt => self.data.encode_bwt(),
-                Encoding::Rle => self.data.encode_rle(),
-                Encoding::Mtf => self.data.encode_mtf(),
-                Encoding::Huff => self.data.encode_huff(),
+                Encoding::Bwt => {
+                    println!("\n====={} - BWT=====", "ENCODE".green());
+                    self.data.encode_bwt()
+                },
+                Encoding::Rle => {
+                    println!("\n====={} - RLE=====", "ENCODE".green());
+                    self.data.encode_rle()
+                },
+                Encoding::Mtf => {
+                    println!("\n====={} - MTF=====", "ENCODE".green());
+                    self.data.encode_mtf()
+                },
+                Encoding::Huff => {
+                    println!("\n====={} - HUFF====", "ENCODE".green());
+                    self.data.encode_huff()
+                },
             };
         }
         return &self.data;
@@ -47,10 +61,22 @@ impl<'a> Compress<'a> {
     pub fn decompress(&mut self) -> &Tokens {
         for encoder in self.pipeline.iter().rev() {
             match encoder {
-                Encoding::Bwt => self.data.decode_bwt(),
-                Encoding::Rle => self.data.decode_rle(),
-                Encoding::Mtf => self.data.decode_mtf(),
-                Encoding::Huff => self.data.decode_huff(),
+                Encoding::Bwt => {
+                    println!("\n====={} - BWT=====", "DECODE".cyan());
+                    self.data.decode_bwt()
+                },
+                Encoding::Rle => {
+                    println!("\n====={} - RLE=====", "DECODE".cyan());
+                    self.data.decode_rle()
+                },
+                Encoding::Mtf => {
+                    println!("\n====={} - MTF=====", "DECODE".cyan());
+                    self.data.decode_mtf()
+                },
+                Encoding::Huff => {
+                    println!("\n====={} - HUFF====", "DECODE".cyan());
+                    self.data.decode_huff()
+                },
             };
         }
         return &self.data;
