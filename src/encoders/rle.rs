@@ -21,7 +21,7 @@ impl Rle for Tokens {
 
         let mut output: Vec<u8> = vec![];
         let delim = get_least_used_byte(&self.0);
-        println!("Using {delim} as delim");
+        log::info!("Using {delim} as delim");
 
         insert_before_target(&mut self.0, b'\\', b'\\');
         insert_before_target(&mut self.0, delim, b'\\');
@@ -69,7 +69,7 @@ impl Rle for Tokens {
         }
 
         let (&delim, bytes) = self.0.split_first().unwrap();
-        println!("Found delim {delim}");
+        log::info!("Found delim {delim}");
 
         let mut output: Vec<u8> = vec![];
 

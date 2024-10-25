@@ -1,1 +1,3 @@
-Just a sample text file I use for testing.
+The stored block option adds minimal overhead and is used for data that is incompressible.
+
+Most compressible data will end up being encoded using method 10, the dynamic Huffman encoding, which produces an optimized Huffman tree customized for each block of data individually. Instructions to generate the necessary Huffman tree immediately follow the block header. The static Huffman option is used for short messages, where the fixed saving gained by omitting the tree outweighs the percentage compression loss due to using a non-optimal (thus, not technically Huffman) code

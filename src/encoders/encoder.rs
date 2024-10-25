@@ -38,19 +38,19 @@ impl<'a> Compress<'a> {
         for encoder in self.pipeline.iter() {
             match encoder {
                 Encoding::Bwt => {
-                    println!("\n====={} - BWT=====", "ENCODE".green());
+                    log::info!("====={} - BWT=====", "ENCODE".green());
                     self.data.encode_bwt()
                 },
                 Encoding::Rle => {
-                    println!("\n====={} - RLE=====", "ENCODE".green());
+                    log::info!("====={} - RLE=====", "ENCODE".green());
                     self.data.encode_rle()
                 },
                 Encoding::Mtf => {
-                    println!("\n====={} - MTF=====", "ENCODE".green());
+                    log::info!("====={} - MTF=====", "ENCODE".green());
                     self.data.encode_mtf()
                 },
                 Encoding::Huff => {
-                    println!("\n====={} - HUFF====", "ENCODE".green());
+                    log::info!("====={} - HUFF====", "ENCODE".green());
                     self.data.encode_huff()
                 },
             };
@@ -62,19 +62,19 @@ impl<'a> Compress<'a> {
         for encoder in self.pipeline.iter().rev() {
             match encoder {
                 Encoding::Bwt => {
-                    println!("\n====={} - BWT=====", "DECODE".cyan());
+                    log::info!("====={} - BWT=====", "DECODE".cyan());
                     self.data.decode_bwt()
                 },
                 Encoding::Rle => {
-                    println!("\n====={} - RLE=====", "DECODE".cyan());
+                    log::info!("====={} - RLE=====", "DECODE".cyan());
                     self.data.decode_rle()
                 },
                 Encoding::Mtf => {
-                    println!("\n====={} - MTF=====", "DECODE".cyan());
+                    log::info!("====={} - MTF=====", "DECODE".cyan());
                     self.data.decode_mtf()
                 },
                 Encoding::Huff => {
-                    println!("\n====={} - HUFF====", "DECODE".cyan());
+                    log::info!("====={} - HUFF====", "DECODE".cyan());
                     self.data.decode_huff()
                 },
             };

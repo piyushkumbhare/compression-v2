@@ -15,7 +15,19 @@ use std::{collections::HashMap, fs::metadata, hash::Hash, io};
 pub struct Args {
     /// File to compress
     #[arg(required = true)]
-    pub file: String,
+    pub input_path: String,
+
+    /// Decompress instead of Compress
+    #[arg(short, long, default_value_t = false)]
+    pub decompress: bool,
+
+    /// Redirect output to stdout. Does not create a .pkz file
+    #[arg(short, long, default_value_t = false)]
+    pub stdout: bool,
+
+    /// Hide debug output
+    #[arg(short, long, default_value_t = false)]
+    pub quiet: bool,
 }
 
 /// Enumerates duplicates within a `Vec<T>` to `Vec<(T, usize)`, count starts at `0`.

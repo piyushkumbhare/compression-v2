@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-
 use super::encoder::Tokens;
 use super::huff_helper::*;
 
@@ -92,7 +91,7 @@ impl Huff for Tokens {
                 Node::Internal(b) => {
                     prebytes.push(0);
                     prebytes.push(b);
-                },
+                }
             }
         }
 
@@ -106,12 +105,12 @@ impl Huff for Tokens {
                 Node::Internal(b) => {
                     inbytes.push(0);
                     inbytes.push(b);
-                },
+                }
             }
         }
 
-        println!("Encoding: File is {} bytes long", self.0.len());
-        println!("Encoding: Tree is {} bytes long", prebytes.len());
+        log::info!("Encoding: File is {} bytes long", self.0.len());
+        log::info!("Encoding: Tree is {} bytes long", prebytes.len());
 
         // Defines the bytes for the final output.
         let mut file_contents = Vec::new();
@@ -124,13 +123,12 @@ impl Huff for Tokens {
         // 5. Encoded data of file
         let mut tree_len: Vec<u8> = (prebytes.len() as u64).to_be_bytes().into();
         file_contents.append(&mut tree_len);
-        
+
         file_contents.append(&mut prebytes);
         file_contents.append(&mut inbytes);
-        
+
         let mut file_len: Vec<u8> = (self.0.len() as u64).to_be_bytes().into();
         file_contents.append(&mut file_len);
-
 
         // Encode the actual data via Huffman Coding
         // Retrieve seen paths from a HashMap, manually perform the traversal on a miss
@@ -184,18 +182,18 @@ impl Huff for Tokens {
         // preorder: tree_len bytes
         // inorder: tree_len bytes
         // data: rest of the file (we stop reading bits after file_len bits)
-        
+
         let (tree_len, rest) = self.0.split_at(8);
         let tree_len = u64::from_be_bytes(tree_len.try_into().unwrap());
-        
+
         let (preorder, rest) = rest.split_at(tree_len as usize);
         let (inorder, rest) = rest.split_at(tree_len as usize);
-        
+
         let (file_len, data) = rest.split_at(8);
         let file_len = u64::from_be_bytes(file_len.try_into().unwrap());
 
-        println!("Decoding: File is {file_len} bytes long");
-        println!("Decoding: Tree is {tree_len} bytes long");
+        log::info!("Decoding: File is {file_len} bytes long");
+        log::info!("Decoding: Tree is {tree_len} bytes long");
 
         let mut pre_iter = preorder.iter();
         let mut preorder = vec![];
@@ -239,19 +237,25 @@ impl Huff for Tokens {
                     current_byte = data_iter.next().unwrap();
                     num_bits = 0;
                 }
-                
+
                 match 0x1 & (current_byte >> (7 - num_bits)) {
                     0 => {
-                        current_node = current_node.left.as_ref().expect("Expected to find a Huffman Node here.");
-                    },
+                        current_node = current_node
+                            .left
+                            .as_ref()
+                            .expect("Expected to find a Huffman Node here.");
+                    }
                     1 => {
-                        current_node = current_node.right.as_ref().expect("Expected to find a Huffman Node here.");
-                    },
+                        current_node = current_node
+                            .right
+                            .as_ref()
+                            .expect("Expected to find a Huffman Node here.");
+                    }
                     _ => {
                         panic!("Bit level error when &ing with 0x0");
                     }
                 }
-                num_bits += 1;                    
+                num_bits += 1;
             }
             if let Node::Leaf(b) = current_node.byte {
                 output_data.push(b);
