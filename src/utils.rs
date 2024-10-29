@@ -17,17 +17,27 @@ pub struct Args {
     #[arg(required = true)]
     pub input_path: String,
 
-    /// Decompress instead of Compress
+    /// Decompress instead of Compress.
     #[arg(short, long, default_value_t = false)]
     pub decompress: bool,
 
-    /// Redirect output to stdout. Does not create a .pkz file
+    /// Redirect output to stdout. Does not create a .pkz file.
     #[arg(short, long, default_value_t = false)]
     pub stdout: bool,
 
-    /// Hide debug output
+    /// Hide debug output.
     #[arg(short, long, default_value_t = false)]
     pub quiet: bool,
+
+    /// Provide a custom Encoding Pipeline in a space-separated list. Ignored if --decompress is used. 
+    /// 
+    /// Possible options (also the default): Bwt Mtf Rle Huff 
+    #[arg(short, long, value_delimiter = ' ', num_args = 1..)]
+    pub pipeline: Option<Vec<String>>,
+
+    /// Performs the compression and verifies that it decodes to the original content. Ignored if --decompress is used.
+    #[arg(short, long = "check-integrity", default_value_t = false)]
+    pub check: bool
 }
 
 /// Enumerates duplicates within a `Vec<T>` to `Vec<(T, usize)`, count starts at `0`.
@@ -120,6 +130,7 @@ pub fn insert_before_target(input: &mut Vec<u8>, target_byte: u8, insert_byte: u
     }
 }
 
+#[allow(unused)]
 /// Gets the file size given a path. Unified functionality across different OS's.
 pub fn get_file_size(path: &str) -> io::Result<u64> {
     #[cfg(target_os = "windows")]

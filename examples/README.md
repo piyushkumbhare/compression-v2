@@ -7,17 +7,12 @@ There are a few notable examples in this directory, here are their stats and how
     2. Compressed Size: 1410279 B
     3. Total compression: 74.41%
 
-2. `bible_source_code.html` - HTML source code of [this page](https://trulyfreebible.com/).
-    1. Original Size: 305635 B
-    2. Compressed Size: 90694 B
-    3. Total compression: 70.33%
-
-3. `small_example.txt` - A small example text file I made.
+2. `small_example.txt` - A small example text file I made.
     1. Original Size: 274 B
     2. Compressed Size: 778 B
     3. Total compression: -183.94%
 
-4. `compression-v2_sample` - A copy of the debug binary of *this very program*.
+3. `compression-v2_sample` - A copy of the debug binary of *this very program*.
     1. Original Size: 17054784 B
     2. Compressed Size: 4595601 B
     3. Total compression: 73.05%

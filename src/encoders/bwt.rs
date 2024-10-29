@@ -95,7 +95,7 @@ impl Bwt for Tokens {
         let delim_pos_b36 = format_radix(delim_pos as u32, 36);
 
         log::info!(
-            "Encoding: Placing delim at position {delim_pos} = {}",
+            "Encoding: Placing delim at position {delim_pos} (base 36) = {} (decimal)",
             delim_pos_b36
         );
 
