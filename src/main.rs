@@ -92,7 +92,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             std::fs::write(s.as_str(), &output_data.0)?;
         }
         OutputFile::Stdout => {
-            std::io::stdout().write(&output_data.0)?;
+            std::io::stdout().write_all(&output_data.0)?;
         }
     };
 

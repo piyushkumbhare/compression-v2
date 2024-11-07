@@ -78,7 +78,7 @@ impl Mtf for Tokens {
             };
             print_str.push(c);
         });
-        log::info!("Using alphabet (ASCII representation):");
+        log::info!("Using alphabet [{} distinct bytes] (ASCII representation):", alphabet.len());
         log::info!("{print_str}");
         // Indicate the end of the alphabet by appending the first byte again
         alphabet.push(*alphabet.first().expect("There should have been an alphabet lol..."));
@@ -110,7 +110,7 @@ impl Mtf for Tokens {
             };
             print_str.push(c);
         });
-        log::info!("Found alphabet (ASCII representation):");
+        log::info!("Found alphabet [{} distinct bytes] (ASCII representation):", alphabet.len());
         log::info!("{print_str}");
         let indices: Vec<u8> = indices.into();
 
