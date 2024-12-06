@@ -9,7 +9,7 @@ use std::{collections::HashMap, fs::metadata, hash::Hash, io};
 
 // Clap's CLI argument parser
 
-/// Compresses an input file into an output (with extension .pkzip)
+/// Compresses an input file into an output (with extension .pkz)
 #[derive(Debug, Parser)]
 #[command(about)]
 pub struct Args {
@@ -17,7 +17,7 @@ pub struct Args {
     #[arg(required = true)]
     pub input_path: String,
 
-    /// Decompress instead of Compress.
+    /// Decompress instead of Compress. Expects a .pkz file as input.
     #[arg(short, long, default_value_t = false)]
     pub decompress: bool,
 
@@ -87,9 +87,12 @@ pub fn get_least_used_byte(input: &Vec<u8>) -> u8 {
         128..=255 => upper |= (0x1 as u128) << (b - 128),
     });
 
+    log::info!("Bitmask {:0128b} {:0128b}", upper, lower);
+
     if lower != u128::MAX {
         for i in 0..=127 {
-            if (!lower >> i) % 2 == 1 {
+            // TODO: figure out why backslash can't be used as a delimiter
+            if (!lower >> i) % 2 == 1 && i != 92 {
                 return i as u8;
             }
         }
@@ -110,12 +113,16 @@ pub fn get_least_used_byte(input: &Vec<u8>) -> u8 {
         map.entry(b).and_modify(|v| *v += 1).or_insert(1);
     });
 
+    // TODO: figure out why backslash can't be used as a delimiter
+    map.remove(&b'\\');
+
     map.into_iter()
         .min_by_key(|(_byte, count)| *count)
         .unwrap_or((0, 0)) // This default will almost never get reached since it means the input is empty
         .0
 }
 
+/// Inserts a `insert_byte` before all occurrences of `target_byte` in `input`
 pub fn insert_before_target(input: &mut Vec<u8>, target_byte: u8, insert_byte: u8) {
     let mut index = 0;
     while index < input.len() {
