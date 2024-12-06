@@ -1,4 +1,3 @@
-use super::encoder::Tokens;
 use crate::index_of;
 
 /*
@@ -32,11 +31,7 @@ use crate::index_of;
 */
 
 
-pub trait Mtf {
-    fn encode_mtf(&mut self) -> &mut Self;
-
-    fn decode_mtf(&mut self) -> &mut Self;
-}
+pub struct Mtf;
 
 /*
     This MTF Encoder is based off of an Adaptive-MTF algorithm by Brandon Simmons.
@@ -48,16 +43,16 @@ pub trait Mtf {
     The true "cost" of this "key" is only the number of unique characters in the orginal string,
     meaning it is upper-bounded by 256 usually.
 */
-impl Mtf for Tokens {
-    fn encode_mtf(&mut self) -> &mut Self {
-        if self.0.len() == 0 {
-            return self
+impl Mtf {
+    pub fn encode(input: Vec<u8>) -> Vec<u8> {
+        if input.len() == 0 {
+            return input;
         }
 
         // Start with empty alphabet and append to it as we find more
         let mut alphabet: Vec<u8> = vec![];
         let mut data: Vec<u8> = vec![];
-        self.0.iter().for_each(|&byte| match index_of(&alphabet, &byte) {
+        input.iter().for_each(|&byte| match index_of(&alphabet, &byte) {
             Some(index) => {
                 alphabet.remove(index);
                 alphabet.insert(0, byte);
@@ -78,26 +73,25 @@ impl Mtf for Tokens {
             };
             print_str.push(c);
         });
-        log::info!("Using alphabet (ASCII representation):");
+        log::info!("Using alphabet [{} distinct bytes] (ASCII representation):", alphabet.len());
         log::info!("{print_str}");
         // Indicate the end of the alphabet by appending the first byte again
         alphabet.push(*alphabet.first().expect("There should have been an alphabet lol..."));
 
         // Append the header & data together
         alphabet.append(&mut data);
-        self.0 = alphabet;
-        self
+        alphabet
     }
 
-    fn decode_mtf(&mut self) -> &mut Self {
+    pub fn decode(input: Vec<u8>) -> Vec<u8> {
         let mut alphabet: Vec<u8> = vec![];
         let mut output: Vec<u8> = vec![];
         let mut indices: &[u8] = &[];
         
         // Split the input at the second occurance of the first byte
-        for (index, &byte) in self.0.iter().enumerate() {
+        for (index, &byte) in input.iter().enumerate() {
             if alphabet.len() > 1 && *alphabet.first().unwrap() == byte {
-                indices = self.0.get(index + 1..).unwrap();
+                indices = input.get(index + 1..).unwrap();
                 break;
             }
             alphabet.push(byte);
@@ -110,7 +104,7 @@ impl Mtf for Tokens {
             };
             print_str.push(c);
         });
-        log::info!("Found alphabet (ASCII representation):");
+        log::info!("Found alphabet [{} distinct bytes] (ASCII representation):", alphabet.len());
         log::info!("{print_str}");
         let indices: Vec<u8> = indices.into();
 
@@ -119,8 +113,7 @@ impl Mtf for Tokens {
             alphabet.insert(index as usize, head);
             output.push(head);
         }
-        self.0 = output.into_iter().rev().collect();
-        self
+        output.into_iter().rev().collect()
     }
 
 }

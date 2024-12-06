@@ -1,35 +1,30 @@
 use std::ops::Div;
 
-use super::encoder::*;
 use crate::*;
 
 // Upper & lower bounds for number of consecutive characters that induce an RLE replacement
 // Lower bound = 4 because aaaa -> (DELIM)4a    4 bytes -> 3 bytes. Saves at least 1 byte
 const MIN_REPEAT_COUNT: u8 = 4;
 
-pub trait Rle {
-    fn encode_rle(&mut self) -> &mut Self;
+pub struct Rle;
 
-    fn decode_rle(&mut self) -> &mut Self;
-}
-
-impl Rle for Tokens {
-    fn encode_rle(&mut self) -> &mut Self {
-        if self.0.len() == 0 {
-            return self;
+impl Rle {
+    pub fn encode(mut input: Vec<u8>) -> Vec<u8> {
+        if input.len() == 0 {
+            return input;
         }
 
         let mut output: Vec<u8> = vec![];
-        let delim = get_least_used_byte(&self.0);
-        log::info!("Using {delim} as delim");
+        let delim = get_least_used_byte(&input);
+        log::info!("Using {delim} ({}) as delim", char::from(delim));
 
-        insert_before_target(&mut self.0, b'\\', b'\\');
-        insert_before_target(&mut self.0, delim, b'\\');
+        insert_before_target(&mut input, b'\\', b'\\');
+        insert_before_target(&mut input, delim, b'\\');
 
         let mut count = 1;
-        let mut last_byte = self.0[0];
+        let mut last_byte = input[0];
 
-        let input_iter = self.0[1..].iter();
+        let input_iter = input[1..].iter();
         for &current_byte in input_iter {
             // If we encounter a new byte OR we hit the repeat limit
             // potentially append run length encoded vec to the output
@@ -38,7 +33,7 @@ impl Rle for Tokens {
                     // If we're under the minimum repeat count, append the raw bytes as is
                     (0..count).into_iter().for_each(|_| output.push(last_byte));
                 } else {
-                    // Otherwise, it means MIN < count <= MAX, so we append the encoding
+                    // Otherwise, it means MIN <= count <= MAX, so we append the encoding
                     output.push(delim);
                     output.push(count);
                     output.push(last_byte);
@@ -59,20 +54,18 @@ impl Rle for Tokens {
         }
 
         output.insert(0, delim);
-        self.0 = output;
-        self
+        output
     }
 
-    fn decode_rle(&mut self) -> &mut Self {
-        if self.0.len() < 2 {
-            return self;
+    pub fn decode(input: Vec<u8>) -> Vec<u8> {
+        if input.len() < 2 {
+            return input;
         }
 
-        let (&delim, bytes) = self.0.split_first().unwrap();
+        let (&delim, bytes) = input.split_first().unwrap();
         log::info!("Found delim {delim}");
 
         let mut output: Vec<u8> = vec![];
-
 
         let mut bytes = bytes.iter();
         while let Some(&b) = bytes.next() {
@@ -92,9 +85,6 @@ impl Rle for Tokens {
             }
         }
 
-        
-
-        self.0 = output;
-        self
+        output
     }
 }

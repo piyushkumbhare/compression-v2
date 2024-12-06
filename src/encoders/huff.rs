@@ -1,25 +1,20 @@
 use std::collections::HashMap;
 
-use super::encoder::Tokens;
 use super::huff_helper::*;
 
 // Huffman Encoding
 
-pub trait Huff {
-    fn encode_huff(&mut self) -> &mut Self;
+pub struct Huff;
 
-    fn decode_huff(&mut self) -> &mut Self;
-}
-
-impl Huff for Tokens {
-    fn encode_huff(&mut self) -> &mut Self {
-        if self.0.len() == 0 {
-            return self;
+impl Huff {
+    pub fn encode(input: Vec<u8>) -> Vec<u8> {
+        if input.len() == 0 {
+            return input;
         }
 
         // Create an array of zeroes. A byte's frequency = freq_map[byte]
         let freq_map: &mut [usize] = &mut [0; 256 as usize];
-        self.0.iter().for_each(|&byte| {
+        input.iter().for_each(|&byte| {
             freq_map[byte as usize] += 1;
         });
 
@@ -109,7 +104,7 @@ impl Huff for Tokens {
             }
         }
 
-        log::info!("Encoding: File is {} bytes long", self.0.len());
+        log::info!("Encoding: File is {} bytes long", input.len());
         log::info!("Encoding: Tree is {} bytes long", prebytes.len());
 
         // Defines the bytes for the final output.
@@ -127,7 +122,7 @@ impl Huff for Tokens {
         file_contents.append(&mut prebytes);
         file_contents.append(&mut inbytes);
 
-        let mut file_len: Vec<u8> = (self.0.len() as u64).to_be_bytes().into();
+        let mut file_len: Vec<u8> = (input.len() as u64).to_be_bytes().into();
         file_contents.append(&mut file_len);
 
         // Encode the actual data via Huffman Coding
@@ -139,7 +134,7 @@ impl Huff for Tokens {
         let mut current_byte: u8 = 0;
         let mut num_bits: u8 = 0;
 
-        for &byte in self.0.iter() {
+        for &byte in input.iter() {
             let path = match paths.get(&byte) {
                 Some(v) => v,
                 None => {
@@ -167,13 +162,12 @@ impl Huff for Tokens {
         }
 
         file_contents.append(&mut output_data);
-        self.0 = file_contents;
-        self
+        file_contents
     }
 
-    fn decode_huff(&mut self) -> &mut Self {
-        if self.0.len() == 0 {
-            return self;
+    pub fn decode(input: Vec<u8>) -> Vec<u8> {
+        if input.len() == 0 {
+            return input;
         }
 
         // Decode the header which contains the following in order:
@@ -183,7 +177,7 @@ impl Huff for Tokens {
         // inorder: tree_len bytes
         // data: rest of the file (we stop reading bits after file_len bits)
 
-        let (tree_len, rest) = self.0.split_at(8);
+        let (tree_len, rest) = input.split_at(8);
         let tree_len = u64::from_be_bytes(tree_len.try_into().unwrap());
 
         let (preorder, rest) = rest.split_at(tree_len as usize);
@@ -263,7 +257,6 @@ impl Huff for Tokens {
                 panic!("Huffman decoding ended on an internal node somehow.")
             }
         }
-        self.0 = output_data;
-        self
+        output_data
     }
 }

@@ -7,15 +7,13 @@ use suffix_array::SuffixArray;
 
 use crate::utils::*;
 
-use super::encoder::Tokens;
-
 #[derive(PartialEq, Eq, PartialOrd, Hash, Clone, Copy)]
-enum Token {
+enum BwtToken {
     Delim,
     Byte(u8),
 }
 
-impl Debug for Token {
+impl Debug for BwtToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Delim => write!(f, "Delim"),
@@ -24,13 +22,13 @@ impl Debug for Token {
     }
 }
 
-impl Ord for Token {
+impl Ord for BwtToken {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Token::Delim, Token::Delim) => Ordering::Equal,
-            (Token::Delim, Token::Byte(_)) => Ordering::Less,
-            (Token::Byte(_), Token::Delim) => Ordering::Greater,
-            (Token::Byte(b1), Token::Byte(b2)) => b1.cmp(b2),
+            (BwtToken::Delim, BwtToken::Delim) => Ordering::Equal,
+            (BwtToken::Delim, BwtToken::Byte(_)) => Ordering::Less,
+            (BwtToken::Byte(_), BwtToken::Delim) => Ordering::Greater,
+            (BwtToken::Byte(b1), BwtToken::Byte(b2)) => b1.cmp(b2),
         }
     }
 }
@@ -47,17 +45,13 @@ impl<'a> Display for ParseError<'a> {
     }
 }
 
-pub trait Bwt {
-    fn encode_bwt(&mut self) -> &mut Self;
+pub struct Bwt;
 
-    fn decode_bwt(&mut self) -> &mut Self;
-}
-
-impl Bwt for Tokens {
-    fn encode_bwt(&mut self) -> &mut Self {
+impl Bwt {
+    pub fn encode(input: Vec<u8>) -> Vec<u8> {
         let time = SystemTime::now();
 
-        // let mut tokens: Vec<Token> = self.0.iter().map(|&b| Token::Byte(b)).collect();
+        // let mut tokens: Vec<Token> = input.iter().map(|&b| Token::Byte(b)).collect();
         // tokens.push(Token::Delim);
 
         // let mut suffix_array: Vec<(usize, &[Token])> = tokens
@@ -73,7 +67,7 @@ impl Bwt for Tokens {
         //     .map(|(index, _token)| index)
         //     .collect();
 
-        let suffix_array: Vec<u32> = SuffixArray::new(&self.0).into_parts().1;
+        let suffix_array: Vec<u32> = SuffixArray::new(&input).into_parts().1;
 
         let elapsed = time.elapsed().unwrap();
         log::info!(
@@ -86,7 +80,7 @@ impl Bwt for Tokens {
 
         for (index, position) in suffix_array.iter().enumerate() {
             if *position > 0 {
-                encoded_output.push(self.0[*position as usize - 1]);
+                encoded_output.push(input[*position as usize - 1]);
             } else {
                 delim_pos = index;
             }
@@ -99,22 +93,19 @@ impl Bwt for Tokens {
             delim_pos_b36
         );
 
-        let mut final_output = format!("{}|", delim_pos_b36).into_bytes();
-        final_output.append(&mut encoded_output);
-
-        self.0 = final_output;
-        self
+        let mut output = format!("{}|", delim_pos_b36).into_bytes();
+        output.append(&mut encoded_output);
+        output
     }
 
-    fn decode_bwt(&mut self) -> &mut Self {
+    pub fn decode(input: Vec<u8>) -> Vec<u8> {
         // First start by splitting on the first b'|', which separates the header & the data
-        let split_index = self
-            .0
+        let split_index = input
             .iter()
             .position(|&b| b == b'|')
             .expect("Unable to find BWT delimiter '|'");
 
-        let (header, data) = self.0.split_at(split_index);
+        let (header, data) = input.split_at(split_index);
         let header: String = header.iter().map(|b| char::from(*b)).collect();
         let data = data.get(1..).expect("Unable to split bytes at '|'");
 
@@ -123,8 +114,8 @@ impl Bwt for Tokens {
 
         log::info!("Decoding: Placing delim at {delim_pos}");
         // Convert all bytes to Tokens & insert the Delim based on header
-        let mut tokens: Vec<Token> = data.iter().map(|&b| Token::Byte(b)).collect();
-        tokens.insert(delim_pos, Token::Delim);
+        let mut tokens: Vec<BwtToken> = data.iter().map(|&b| BwtToken::Byte(b)).collect();
+        tokens.insert(delim_pos, BwtToken::Delim);
 
         let unsorted = enumerate_duplicates(tokens.clone());
 
@@ -134,25 +125,25 @@ impl Bwt for Tokens {
         radsort::sort(&mut sorted);
 
         // Now we convert to Tokens
-        let mut sorted: Vec<Token> = sorted.iter().map(|&b| Token::Byte(b)).collect();
-        sorted.insert(0, Token::Delim);
+        let mut sorted: Vec<BwtToken> = sorted.iter().map(|&b| BwtToken::Byte(b)).collect();
+        sorted.insert(0, BwtToken::Delim);
 
         // Then enumerate duplicates
         let sorted = enumerate_duplicates(sorted);
 
-        let mut map: HashMap<(Token, usize), (Token, usize)> = HashMap::new();
+        let mut map: HashMap<(BwtToken, usize), (BwtToken, usize)> = HashMap::new();
         sorted.iter().zip(&unsorted).for_each(|(p1, p2)| {
             map.insert(p1.clone(), p2.clone());
         });
 
-        let mut decoded_tokens: Vec<Token> = Vec::with_capacity(unsorted.len());
-        let mut current_byte = (Token::Delim, 0 as usize);
+        let mut decoded_tokens: Vec<BwtToken> = Vec::with_capacity(unsorted.len());
+        let mut current_byte = (BwtToken::Delim, 0 as usize);
 
         drop(sorted);
         drop(unsorted);
 
         // Backtrack through the BWT dictionary to rebuild original string
-        while *decoded_tokens.last().unwrap_or(&Token::Byte(0)) != Token::Delim {
+        while *decoded_tokens.last().unwrap_or(&BwtToken::Byte(0)) != BwtToken::Delim {
             let next_byte = map
                 .remove(&current_byte)
                 .expect("A byte was read that was really not supposed to be there...");
@@ -164,12 +155,11 @@ impl Bwt for Tokens {
             .iter()
             .rev()
             .filter_map(|&token| match token {
-                Token::Byte(b) => Some(b),
-                Token::Delim => None,
+                BwtToken::Byte(b) => Some(b),
+                BwtToken::Delim => None,
             })
             .collect();
 
-        self.0 = output;
-        self
+        output
     }
 }

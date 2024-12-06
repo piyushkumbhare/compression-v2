@@ -48,7 +48,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let mut compressor = Tokens::new(input_data);
+    let mut compressor = Tokens::new(pipeline.clone());
 
     // Declare output data, which will vary & change based on argument flags
     let output_data;
@@ -63,7 +63,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             // If decompressing, then verify file ends with .pkz, then trim that to get output path
             if let Some(output_path) = args.input_path.strip_suffix(".pkz") {
                 output_file = OutputFile::File(output_path.to_string());
-                output_data = compressor.decompress();
+                output_data = compressor.decompress(input_data);
             } else {
                 log::error!("This program expects a .pkz file when decompressing!");
                 panic!("This program expects a .pkz file when decompressing!");
@@ -73,11 +73,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             // If compressing, simply append .pkz to input path
             log::info!("Using Encoding Pipeline: {:?}", &pipeline);
             output_file = OutputFile::File(format!("{}.pkz", args.input_path));
-            output_data = compressor.compress(&pipeline);
+            output_data = compressor.compress(input_data);
         }
     }
 
-    let output_size = output_data.0.len();
+    let output_size = output_data.len();
 
     // If --stdout option was passed, then overwrite the output file
     match args.stdout {
@@ -89,34 +89,34 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     match output_file {
         OutputFile::File(ref s) => {
-            std::fs::write(s.as_str(), &output_data.0)?;
+            std::fs::write(s.as_str(), &output_data)?;
         }
         OutputFile::Stdout => {
-            std::io::stdout().write(&output_data.0)?;
+            std::io::stdout().write_all(&output_data)?;
         }
     };
 
-    if args.check && !args.decompress {
+    if args.check {
         let decoded = match args.decompress {
-            true => compressor.compress(&pipeline),
-            false => compressor.decompress(),
-        };
+            true => compressor.compress(output_data),
+            false => compressor.decompress(output_data),
+        }; 
 
-        let new_sha256 = digest(&decoded.0);
+        let new_sha256 = digest(&decoded);
 
         if original_sha256 == new_sha256 {
             log::info!(
-                "Decode: {}. Compressed file decodes back to original.",
+                "Decode: {}. File decodes back to original.",
                 "Success".green().bold()
             );
             exit(0);
         } else {
             log::error!(
-                "Decode: {}. Compressed file does not decode back to original.",
+                "Decode: {}. File does not decode back to original.",
                 "Failed".red().bold()
             );
             panic!(
-                "Decode: {}. Compressed file does not decode back to original.",
+                "Decode: {}. File does not decode back to original.",
                 "Failed".red().bold()
             )
         }
