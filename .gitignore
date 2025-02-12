@@ -2,3 +2,6 @@
 hexdump_rust*
 *.pkz
 *.decoded
+*.sh
+findings/
+examples/
