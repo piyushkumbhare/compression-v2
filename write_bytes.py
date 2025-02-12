@@ -8,7 +8,7 @@ if len(sys.argv) != 2:
 
 file = sys.argv[1]
 
-b = bytearray([97] * 257)
+b = bytearray([0xee, 0x82, 0xb0, 0x0a])
 
 with open(file=file, mode="wb") as f:
     f.write(b)
