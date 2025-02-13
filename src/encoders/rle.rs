@@ -1,22 +1,26 @@
 use std::ops::Div;
 
-use crate::*;
+use crate::{utils::{get_least_used_byte, insert_before_target}, *};
+
+use super::encoder::Encoder;
 
 // Upper & lower bounds for number of consecutive characters that induce an RLE replacement
 // Lower bound = 4 because aaaa -> (DELIM)4a    4 bytes -> 3 bytes. Saves at least 1 byte
 const MIN_REPEAT_COUNT: u8 = 4;
+const MAX_REPEAT_COUNT: u8 = u8::MAX;
 
+#[derive(Clone, Debug)]
 pub struct Rle;
 
-impl Rle {
-    pub fn encode(mut input: Vec<u8>) -> Vec<u8> {
+impl Encoder for Rle {
+    fn encode(&self, mut input: Vec<u8>) -> Vec<u8> {
         if input.len() == 0 {
             return input;
         }
 
         let mut output: Vec<u8> = vec![];
         let delim = get_least_used_byte(&input);
-        log::info!("Using {delim} ({}) as delim", char::from(delim));
+        log::debug!("Using {delim} ({}) as delim", char::from(delim));
 
         insert_before_target(&mut input, b'\\', b'\\');
         insert_before_target(&mut input, delim, b'\\');
@@ -28,7 +32,7 @@ impl Rle {
         for &current_byte in input_iter {
             // If we encounter a new byte OR we hit the repeat limit
             // potentially append run length encoded vec to the output
-            if current_byte != last_byte || count == u8::MAX {
+            if current_byte != last_byte || count == MAX_REPEAT_COUNT {
                 if count < MIN_REPEAT_COUNT {
                     // If we're under the minimum repeat count, append the raw bytes as is
                     (0..count).into_iter().for_each(|_| output.push(last_byte));
@@ -57,13 +61,13 @@ impl Rle {
         output
     }
 
-    pub fn decode(input: Vec<u8>) -> Vec<u8> {
+    fn decode(&self, input: Vec<u8>) -> Vec<u8> {
         if input.len() < 2 {
             return input;
         }
 
         let (&delim, bytes) = input.split_first().unwrap();
-        log::info!("Found delim {delim}");
+        log::debug!("Found delim {delim}");
 
         let mut output: Vec<u8> = vec![];
 

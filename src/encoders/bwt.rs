@@ -7,6 +7,8 @@ use suffix_array::SuffixArray;
 
 use crate::utils::*;
 
+use super::encoder::Encoder;
+
 #[derive(PartialEq, Eq, PartialOrd, Hash, Clone, Copy)]
 enum BwtToken {
     Delim,
@@ -45,10 +47,11 @@ impl<'a> Display for ParseError<'a> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Bwt;
 
-impl Bwt {
-    pub fn encode(input: Vec<u8>) -> Vec<u8> {
+impl Encoder for Bwt {
+    fn encode(&self, input: Vec<u8>) -> Vec<u8> {
         let time = SystemTime::now();
 
         // let mut tokens: Vec<Token> = input.iter().map(|&b| Token::Byte(b)).collect();
@@ -70,7 +73,7 @@ impl Bwt {
         let suffix_array: Vec<u32> = SuffixArray::new(&input).into_parts().1;
 
         let elapsed = time.elapsed().unwrap();
-        log::info!(
+        log::debug!(
             "Finished creating Suffix Array in {} ms!",
             elapsed.as_millis()
         );
@@ -86,19 +89,16 @@ impl Bwt {
             }
         }
 
-        let delim_pos_b36 = format_radix(delim_pos as u32, 36);
+        log::debug!("Encoding: Placing delim at position {delim_pos}");
 
-        log::info!(
-            "Encoding: Placing delim at position {delim_pos} (base 36) = {} (decimal)",
-            delim_pos_b36
-        );
-
-        let mut output = format!("{}|", delim_pos_b36).into_bytes();
+        let delim_pos = delim_pos as u64;
+        let mut output: Vec<u8> = delim_pos.to_be_bytes().into();
+        output.push(b'|');
         output.append(&mut encoded_output);
         output
     }
 
-    pub fn decode(input: Vec<u8>) -> Vec<u8> {
+    fn decode(&self, input: Vec<u8>) -> Vec<u8> {
         // First start by splitting on the first b'|', which separates the header & the data
         let split_index = input
             .iter()
@@ -106,16 +106,16 @@ impl Bwt {
             .expect("Unable to find BWT delimiter '|'");
 
         let (header, data) = input.split_at(split_index);
-        let header: String = header.iter().map(|b| char::from(*b)).collect();
         let data = data.get(1..).expect("Unable to split bytes at '|'");
 
-        let delim_pos = usize::from_str_radix(&header, 36)
-            .expect(format!("Unable to parse `{header}` into a b36 number").as_str());
+        // TODO: Fix this cursed ass code
+        let header: [u8; 8] = *header.first_chunk::<8>().unwrap();
+        let delim_pos = u64::from_be_bytes(header);
 
-        log::info!("Decoding: Placing delim at {delim_pos}");
+        log::debug!("Decoding: Placing delim at {delim_pos}");
         // Convert all bytes to Tokens & insert the Delim based on header
         let mut tokens: Vec<BwtToken> = data.iter().map(|&b| BwtToken::Byte(b)).collect();
-        tokens.insert(delim_pos, BwtToken::Delim);
+        tokens.insert(delim_pos as usize, BwtToken::Delim);
 
         let unsorted = enumerate_duplicates(tokens.clone());
 

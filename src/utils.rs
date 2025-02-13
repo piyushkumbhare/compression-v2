@@ -7,39 +7,6 @@ use std::{collections::HashMap, fs::metadata, hash::Hash, io};
     Everything here is documented with a breif description of what it does.
 */
 
-// Clap's CLI argument parser
-
-/// Compresses an input file into an output (with extension .pkz)
-#[derive(Debug, Parser)]
-#[command(about)]
-pub struct Args {
-    /// File to compress
-    #[arg(required = true)]
-    pub input_path: String,
-
-    /// Decompress instead of Compress. Expects a .pkz file as input.
-    #[arg(short, long, default_value_t = false)]
-    pub decompress: bool,
-
-    /// Redirect output to stdout. Does not create a .pkz file.
-    #[arg(short, long, default_value_t = false)]
-    pub stdout: bool,
-
-    /// Hide debug output.
-    #[arg(short, long, default_value_t = false)]
-    pub quiet: bool,
-
-    /// Provide a custom Encoding Pipeline in a space-separated list. Ignored if --decompress is used. 
-    /// 
-    /// Possible options (also the default): Bwt Mtf Rle Huff 
-    #[arg(short, long, value_delimiter = ' ', num_args = 1..)]
-    pub pipeline: Option<Vec<String>>,
-
-    /// Performs the compression and verifies that it decodes to the original content. Ignored if --decompress is used.
-    #[arg(short, long = "check-integrity", default_value_t = false)]
-    pub check: bool
-}
-
 /// Enumerates duplicates within a `Vec<T>` to `Vec<(T, usize)`, count starts at `0`.
 pub fn enumerate_duplicates<T>(v: Vec<T>) -> Vec<(T, usize)>
 where
@@ -87,7 +54,7 @@ pub fn get_least_used_byte(input: &Vec<u8>) -> u8 {
         128..=255 => upper |= (0x1 as u128) << (b - 128),
     });
 
-    log::info!("Bitmask {:0128b} {:0128b}", upper, lower);
+    log::debug!("Bitmask {:0128b} {:0128b}", upper, lower);
 
     if lower != u128::MAX {
         for i in 0..=127 {

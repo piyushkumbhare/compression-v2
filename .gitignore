@@ -4,4 +4,5 @@ hexdump_rust*
 *.decoded
 *.sh
 findings/
+Cargo.lock
 examples/

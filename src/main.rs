@@ -1,155 +1,138 @@
-// #![allow(unused)]
+#![allow(unused)]
+use std::{error::Error, str::FromStr};
+
+use clap::Parser;
+
+mod args;
 mod encoders;
+mod errors;
 mod tests;
 mod utils;
 
-use encoder::{Encoding, Tokens};
-use encoders::*;
-use simple_logger::SimpleLogger;
-use utils::*;
-
-use std::{error::Error, io::Write, process::exit};
-
-use clap::Parser;
+use args::*;
 use colored::Colorize;
-use sha256::digest;
+use encoders::encoder::{Compressor, EncoderType};
+use errors::CompressError::*;
+use simple_logger::SimpleLogger;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> anyhow::Result<()> {
     // Parse CLI Args
     let args = Args::parse();
 
-    // If printing to stdout OR if quiet option enabled, then don't enable log printing
-    if !args.stdout && !args.quiet {
-        SimpleLogger::new().without_timestamps().init()?;
-    }
-
-    // Get input data. Hash it for decode verification later.
-    let input_data = std::fs::read(&args.input_path)?;
-    let input_size = input_data.len();
-    let original_sha256 = digest(&input_data);
-
-    // Define the Encoding pipeline
-    let pipeline = match args.pipeline {
-        Some(e) => {
-            use Encoding::*;
-            e.iter().map(|s| {
-                match s.to_uppercase().as_str() {
-                    "BWT" => Bwt,
-                    "MTF" => Mtf,
-                    "RLE" => Rle,
-                    "HUFF" => Huff,
-                    _ => panic!("Found an unexpected Encoding value with the --pipeline option. Use --help for more info"),
-                }
-            }).collect()
-        }
-        None => {
-            use Encoding::*;
-            vec![Bwt, Mtf, Rle, Huff]
-        }
-    };
-
-    let mut compressor = Tokens::new(pipeline.clone());
-
-    // Declare output data, which will vary & change based on argument flags
-    let output_data;
-    let mut output_file;
-    enum OutputFile {
-        File(String),
-        Stdout,
-    }
-
-    match args.decompress {
-        true => {
-            // If decompressing, then verify file ends with .pkz, then trim that to get output path
-            if let Some(output_path) = args.input_path.strip_suffix(".pkz") {
-                output_file = OutputFile::File(output_path.to_string());
-                output_data = compressor.decompress(input_data);
-            } else {
-                log::error!("This program expects a .pkz file when decompressing!");
-                panic!("This program expects a .pkz file when decompressing!");
-            }
-        }
-        false => {
-            // If compressing, simply append .pkz to input path
-            log::info!("Using Encoding Pipeline: {:?}", &pipeline);
-            output_file = OutputFile::File(format!("{}.pkz", args.input_path));
-            output_data = compressor.compress(input_data);
-        }
-    }
-
-    let output_size = output_data.len();
-
-    // If --stdout option was passed, then overwrite the output file
-    match args.stdout {
-        true => {
-            output_file = OutputFile::Stdout;
-        }
-        false => {}
-    }
-
-    match output_file {
-        OutputFile::File(ref s) => {
-            std::fs::write(s.as_str(), &output_data)?;
-        }
-        OutputFile::Stdout => {
-            std::io::stdout().write_all(&output_data)?;
-        }
-    };
-
-    if args.check {
-        let decoded = match args.decompress {
-            true => compressor.compress(output_data),
-            false => compressor.decompress(output_data),
-        }; 
-
-        let new_sha256 = digest(&decoded);
-
-        if original_sha256 == new_sha256 {
-            log::info!(
-                "Decode: {}. File decodes back to original.",
-                "Success".green().bold()
-            );
-            exit(0);
+    // If --quiet, turn off all logging
+    if !args.quiet {
+        if args.verbose {
+            // If --verbose, Debug logging
+            SimpleLogger::new()
+                .with_level(log::LevelFilter::Debug)
+                .init();
         } else {
-            log::error!(
-                "Decode: {}. File does not decode back to original.",
-                "Failed".red().bold()
-            );
-            panic!(
-                "Decode: {}. File does not decode back to original.",
-                "Failed".red().bold()
-            )
+            // else, default to Info logging
+            SimpleLogger::new()
+                .with_level(log::LevelFilter::Info)
+                .init();
         }
     }
 
-    if !args.decompress {
-        // Print statistics & results
-        let output_path = match output_file {
-            OutputFile::File(ref s) => s,
-            OutputFile::Stdout => "stdout",
-        };
+    match args.command {
+        Mode::Compress {
+            file,
+            pipeline,
+            check_integerity,
+            output,
+        } => compress(file, pipeline, check_integerity, output)?,
+        Mode::Decompress { file, output } => decompress(file, output)?,
+    };
 
-        let percent = (1.0 - output_size as f32 / input_size as f32) * 100.0;
+    Ok(())
+}
 
-        log::info!(
-            r#"
-    Size (Bytes):
+/// Main entry point for a `compress` command
+fn compress(
+    file: String,
+    pipeline: Option<Vec<String>>,
+    check_integerity: bool,
+    output: Option<String>,
+) -> anyhow::Result<()> {
+    let output_path = output.unwrap_or_else(|| format!("{}.pkz", &file));
+    log::info!("Compressing into {}", output_path.bold());
 
-        {} - {input_size} bytes
-        {output_path} - {output_size} bytes
+    let pipeline = match pipeline {
+        Some(p) => p
+            .iter()
+            .map(|f| EncoderType::from_str(&f).unwrap())
+            .collect(),
+        None => vec![
+            EncoderType::Bwt,
+            EncoderType::Mtf,
+            EncoderType::Rle,
+            EncoderType::Huff,
+        ],
+    };
 
-    Total compression: {:0.2}%
-    
-    {}
-    "#,
-            args.input_path,
-            percent,
-            format!(
-                "The output file is {:0.2}% of its original size!",
-                100.0 - percent
-            )
-            .bold(),
-        );
+    let data = std::fs::read(&file)?;
+
+    let mut tokens = Compressor::new(pipeline.clone());
+
+    let mut compressed_contents = match check_integerity {
+        true => tokens.try_compress(data).unwrap(),
+        false => tokens.compress(data),
+    };
+
+    // Header of the compressed file will be the u8's representing the order of encoders used
+    let mut headers: Vec<u8> = pipeline.iter().map(|e| *e as u8).collect();
+    // The b'|' separates the header from the body
+    headers.push(b'|');
+    headers.append(&mut compressed_contents);
+
+    let final_contents = headers;
+
+    std::fs::write(output_path, final_contents)?;
+
+    Ok(())
+}
+
+/// Main entry point for a `decompress` command
+fn decompress(file: String, output: Option<String>) -> anyhow::Result<()> {
+    let output_path = match output {
+        Some(s) => s,
+        None => match file.strip_suffix(".pkz") {
+            Some(s) => s.to_string(),
+            None => format!("{file}.dcmp"),
+        },
+    };
+    log::info!("Decompressing into {}", output_path.bold());
+
+    let data = std::fs::read(&file)?;
+
+    let Some(header_index) = utils::index_of(&data, &b'|') else {
+        log::error!("Invlaid format! Aborting...");
+        std::process::exit(1);
+    };
+
+    let (headers, data) = data.split_at(header_index);
+
+    if data.len() < 2 {
+        return Err(ParseError("Header found but no body").into());
     }
+    let data = &data[1..];
+
+    // Construct the encoder pipeline from the header
+    let mut pipeline: Vec<EncoderType> = Vec::new();
+
+    for &e in headers {
+        let Ok(encoder) = EncoderType::try_from(e) else {
+            return Err(ParseError("Invalid encoder found in header").into());
+        };
+        pipeline.push(encoder);
+    }
+
+    let mut tokens = Compressor::new(pipeline);
+
+    let decompressed_contents = tokens.decompress(data.into());
+
+    std::fs::write(output_path, decompressed_contents)?;
+
+    log::info!("Done decompressing");
     Ok(())
 }

@@ -1,4 +1,6 @@
-use crate::index_of;
+use crate::utils::index_of;
+
+use super::encoder::Encoder;
 
 /*
     This MTF Encoder is based off of an Adaptive-MTF algorithm by Brandon Simmons.
@@ -30,7 +32,7 @@ use crate::index_of;
     And I really like the pipeline/macro I made... :(
 */
 
-
+#[derive(Debug)]
 pub struct Mtf;
 
 /*
@@ -43,8 +45,8 @@ pub struct Mtf;
     The true "cost" of this "key" is only the number of unique characters in the orginal string,
     meaning it is upper-bounded by 256 usually.
 */
-impl Mtf {
-    pub fn encode(input: Vec<u8>) -> Vec<u8> {
+impl Encoder for Mtf {
+    fn encode(&self, input: Vec<u8>) -> Vec<u8> {
         if input.len() == 0 {
             return input;
         }
@@ -52,19 +54,21 @@ impl Mtf {
         // Start with empty alphabet and append to it as we find more
         let mut alphabet: Vec<u8> = vec![];
         let mut data: Vec<u8> = vec![];
-        input.iter().for_each(|&byte| match index_of(&alphabet, &byte) {
-            Some(index) => {
-                alphabet.remove(index);
-                alphabet.insert(0, byte);
-                // Since we're dealing with bytes, we know the index in the alphabet
-                // is limited by 255 and can be held in a u8
-                data.push(index as u8);
-            }
-            None => {
-                alphabet.insert(0, byte);
-                data.push((alphabet.len() - 1) as u8);
-            }
-        });
+        input
+            .iter()
+            .for_each(|&byte| match index_of(&alphabet, &byte) {
+                Some(index) => {
+                    alphabet.remove(index);
+                    alphabet.insert(0, byte);
+                    // Since we're dealing with bytes, we know the index in the alphabet
+                    // is limited by 255 and can be held in a u8
+                    data.push(index as u8);
+                }
+                None => {
+                    alphabet.insert(0, byte);
+                    data.push((alphabet.len() - 1) as u8);
+                }
+            });
         let mut print_str = String::new();
         alphabet.iter().for_each(|&b| {
             let c = match b {
@@ -73,21 +77,28 @@ impl Mtf {
             };
             print_str.push(c);
         });
-        log::info!("Using alphabet [{} distinct bytes] (ASCII representation):", alphabet.len());
-        log::info!("{print_str}");
+        log::debug!(
+            "Using alphabet [{} distinct bytes] (ASCII representation):",
+            alphabet.len()
+        );
+        log::debug!("{print_str}");
         // Indicate the end of the alphabet by appending the first byte again
-        alphabet.push(*alphabet.first().expect("There should have been an alphabet lol..."));
+        alphabet.push(
+            *alphabet
+                .first()
+                .expect("There should have been an alphabet lol..."),
+        );
 
         // Append the header & data together
         alphabet.append(&mut data);
         alphabet
     }
 
-    pub fn decode(input: Vec<u8>) -> Vec<u8> {
+    fn decode(&self, input: Vec<u8>) -> Vec<u8> {
         let mut alphabet: Vec<u8> = vec![];
         let mut output: Vec<u8> = vec![];
         let mut indices: &[u8] = &[];
-        
+
         // Split the input at the second occurance of the first byte
         for (index, &byte) in input.iter().enumerate() {
             if alphabet.len() > 1 && *alphabet.first().unwrap() == byte {
@@ -104,8 +115,11 @@ impl Mtf {
             };
             print_str.push(c);
         });
-        log::info!("Found alphabet [{} distinct bytes] (ASCII representation):", alphabet.len());
-        log::info!("{print_str}");
+        log::debug!(
+            "Found alphabet [{} distinct bytes] (ASCII representation):",
+            alphabet.len()
+        );
+        log::debug!("{print_str}");
         let indices: Vec<u8> = indices.into();
 
         for &index in indices.iter().rev() {
@@ -115,6 +129,4 @@ impl Mtf {
         }
         output.into_iter().rev().collect()
     }
-
 }
-

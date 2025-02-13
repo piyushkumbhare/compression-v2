@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
-use super::huff_helper::*;
+use super::{encoder::Encoder, huff_helper::*};
 
 // Huffman Encoding
 
+#[derive(Debug)]
 pub struct Huff;
 
-impl Huff {
-    pub fn encode(input: Vec<u8>) -> Vec<u8> {
+impl Encoder for Huff {
+    fn encode(&self, input: Vec<u8>) -> Vec<u8> {
         if input.len() == 0 {
             return input;
         }
@@ -104,8 +105,8 @@ impl Huff {
             }
         }
 
-        log::info!("Encoding: File is {} bytes long", input.len());
-        log::info!("Encoding: Tree is {} bytes long", prebytes.len());
+        log::debug!("Encoding: File is {} bytes long", input.len());
+        log::debug!("Encoding: Tree is {} bytes long", prebytes.len());
 
         // Defines the bytes for the final output.
         let mut file_contents = Vec::new();
@@ -165,7 +166,7 @@ impl Huff {
         file_contents
     }
 
-    pub fn decode(input: Vec<u8>) -> Vec<u8> {
+    fn decode(&self, input: Vec<u8>) -> Vec<u8> {
         if input.len() == 0 {
             return input;
         }
@@ -186,8 +187,8 @@ impl Huff {
         let (file_len, data) = rest.split_at(8);
         let file_len = u64::from_be_bytes(file_len.try_into().unwrap());
 
-        log::info!("Decoding: File is {file_len} bytes long");
-        log::info!("Decoding: Tree is {tree_len} bytes long");
+        log::debug!("Decoding: File is {file_len} bytes long");
+        log::debug!("Decoding: Tree is {tree_len} bytes long");
 
         let mut pre_iter = preorder.iter();
         let mut preorder = vec![];
