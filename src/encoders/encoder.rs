@@ -58,8 +58,10 @@ impl Compressor {
         let mut output = data;
         for encoder in self.pipeline.iter() {
             log::info!("{}: {:?} started", "Encoding".green(), encoder);
+            let time = std::time::SystemTime::now();
             output = encoder.encode(output);
-            log::info!("{}: {:?} finished", "Encoding".green(), encoder);
+            let elapsed = time.elapsed().unwrap().as_millis();
+            log::info!("{}: {:?} finished in {} ms", "Encoding".blue(), encoder, format!("{elapsed}").bold());
         }
         output
     }
@@ -68,8 +70,10 @@ impl Compressor {
         let mut output = data;
         for encoder in self.pipeline.iter().rev() {
             log::info!("{}: {:?} started", "Decoding".blue(), encoder);
+            let time = std::time::SystemTime::now();
             output = encoder.decode(output);
-            log::info!("{}: {:?} finished", "Decoding".blue(), encoder);
+            let elapsed = time.elapsed().unwrap().as_millis();
+            log::info!("{}: {:?} finished in {} ms", "Decoding".blue(), encoder, format!("{elapsed}").bold());
         }
         output
     }

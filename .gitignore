@@ -6,3 +6,4 @@ hexdump_rust*
 findings/
 Cargo.lock
 examples/
+testcases/
