@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use colored::Colorize;
 use strum::EnumString;
 
-use super::{bwt::Bwt, huff::Huff, mtf::Mtf, rle::Rle};
+use super::{bwt::Bwt, bwt_blk::BwtBlk, huff::Huff, mtf::Mtf, rle::Rle};
 
 pub struct Compressor {
     pipeline: Vec<Box<dyn Encoder>>,
@@ -17,11 +17,13 @@ pub trait Encoder: Debug {
 
 #[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 #[repr(u8)]
+#[strum(ascii_case_insensitive)]
 pub enum EncoderType {
     Bwt = 0,
     Mtf = 1,
     Rle = 2,
     Huff = 3,
+    BwtBlk = 4,
 }
 
 impl TryFrom<u8> for EncoderType {
@@ -33,6 +35,7 @@ impl TryFrom<u8> for EncoderType {
             1 => Ok(Self::Mtf),
             2 => Ok(Self::Rle),
             3 => Ok(Self::Huff),
+            4 => Ok(Self::BwtBlk),
             _ => Err(()),
         }
     }
@@ -48,6 +51,7 @@ impl Compressor {
                 EncoderType::Mtf => encoders.push(Box::new(Mtf)),
                 EncoderType::Rle => encoders.push(Box::new(Rle)),
                 EncoderType::Huff => encoders.push(Box::new(Huff)),
+                EncoderType::BwtBlk => encoders.push(Box::new(BwtBlk)),
             }
         }
 
@@ -57,11 +61,16 @@ impl Compressor {
     pub fn compress(&mut self, data: Vec<u8>) -> Vec<u8> {
         let mut output = data;
         for encoder in self.pipeline.iter() {
-            log::info!("{}: {:?} started", "Encoding".green(), encoder);
+            log::info!("{}: {:?} started", "Encoding".blue(), encoder);
             let time = std::time::SystemTime::now();
             output = encoder.encode(output);
             let elapsed = time.elapsed().unwrap().as_millis();
-            log::info!("{}: {:?} finished in {} ms", "Encoding".blue(), encoder, format!("{elapsed}").bold());
+            log::info!(
+                "{}: {:?} finished in {} ms",
+                "Encoding".green(),
+                encoder,
+                format!("{elapsed}").bold()
+            );
         }
         output
     }
@@ -69,16 +78,21 @@ impl Compressor {
     pub fn decompress(&mut self, data: Vec<u8>) -> Vec<u8> {
         let mut output = data;
         for encoder in self.pipeline.iter().rev() {
-            log::info!("{}: {:?} started", "Decoding".blue(), encoder);
+            log::info!("{}: {:?} started", "Decoding".yellow(), encoder);
             let time = std::time::SystemTime::now();
             output = encoder.decode(output);
             let elapsed = time.elapsed().unwrap().as_millis();
-            log::info!("{}: {:?} finished in {} ms", "Decoding".blue(), encoder, format!("{elapsed}").bold());
+            log::info!(
+                "{}: {:?} finished in {} ms",
+                "Decoding".green(),
+                encoder,
+                format!("{elapsed}").bold()
+            );
         }
         output
     }
 
-    pub fn try_compress(&mut self, data: Vec<u8>) -> Option<Vec<u8>> {
+    pub fn compress_and_check(&mut self, data: Vec<u8>) -> Option<Vec<u8>> {
         let original_hash = sha256::digest(&data);
 
         let compressed = self.compress(data);

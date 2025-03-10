@@ -3,11 +3,9 @@ use std::fmt::{Debug, Display};
 use std::time::SystemTime;
 use std::{collections::HashMap, error::Error};
 
-use suffix_array::SuffixArray;
-
-use crate::utils::*;
-
 use super::encoder::Encoder;
+use crate::utils::*;
+use suffix_array::SuffixArray;
 
 #[derive(PartialEq, Eq, PartialOrd, Hash, Clone, Copy)]
 enum BwtToken {
@@ -89,47 +87,45 @@ impl Encoder for Bwt {
             }
         }
 
-        log::debug!("Encoding: Placing delim at position {delim_pos}");
+        log::debug!("Encoding: Placing delim at {:#0x} {delim_pos}", delim_pos);
 
         let delim_pos = delim_pos as u64;
         let mut output: Vec<u8> = delim_pos.to_be_bytes().into();
-        output.push(b'|');
         output.append(&mut encoded_output);
         output
     }
 
+    // FIXME: This function is hella slow ngl
     fn decode(&self, input: Vec<u8>) -> Vec<u8> {
-        // First start by splitting on the first b'|', which separates the header & the data
-        let split_index = input
-            .iter()
-            .position(|&b| b == b'|')
-            .expect("Unable to find BWT delimiter '|'");
-
-        let (header, data) = input.split_at(split_index);
-        let data = data.get(1..).expect("Unable to split bytes at '|'");
+        // The first 8 bytes are the index of the BWT
+        let (header, data) = input.split_at(8);
 
         // TODO: Fix this cursed ass code
+        // Actually maybe we need some cursed ass code in today's society...
         let header: [u8; 8] = *header.first_chunk::<8>().unwrap();
-        let delim_pos = u64::from_be_bytes(header);
+        let delim_pos = usize::from_be_bytes(header);
 
-        log::debug!("Decoding: Placing delim at {delim_pos}");
-        // Convert all bytes to Tokens & insert the Delim based on header
-        let mut tokens: Vec<BwtToken> = data.iter().map(|&b| BwtToken::Byte(b)).collect();
-        tokens.insert(delim_pos as usize, BwtToken::Delim);
+        log::debug!("Decoding: Placing delim at {:#0x} {delim_pos}", delim_pos);
 
-        let unsorted = enumerate_duplicates(tokens.clone());
+        let mut unsorted = tools::enumerate_duplicate_bytes(data);
 
-        // To use Radix Sort, we must let radsort operate BEFORE we tokenize (since Token can't implement Key)
-        // To work around this, we can insert Token::Delim at position 0 since we know it will end up there post-sort
-        let mut sorted: Vec<u8> = data.into();
+        let mut sorted = unsorted.clone();
         radsort::sort(&mut sorted);
 
         // Now we convert to Tokens
-        let mut sorted: Vec<BwtToken> = sorted.iter().map(|&b| BwtToken::Byte(b)).collect();
-        sorted.insert(0, BwtToken::Delim);
+        let mut unsorted: Vec<(BwtToken, usize)> = unsorted
+            .iter()
+            .map(|&(b, c)| (BwtToken::Byte(b), c))
+            .collect();
 
-        // Then enumerate duplicates
-        let sorted = enumerate_duplicates(sorted);
+        let mut sorted: Vec<(BwtToken, usize)> = sorted
+            .iter()
+            .map(|&(b, c)| (BwtToken::Byte(b), c))
+            .collect();
+
+        // Insert the Delim token at its known positions
+        unsorted.insert(delim_pos, (BwtToken::Delim, 0));
+        sorted.insert(0, (BwtToken::Delim, 0));
 
         let mut map: HashMap<(BwtToken, usize), (BwtToken, usize)> = HashMap::new();
         sorted.iter().zip(&unsorted).for_each(|(p1, p2)| {

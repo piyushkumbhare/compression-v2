@@ -3,11 +3,11 @@ use std::{error::Error, str::FromStr};
 
 use clap::Parser;
 
-mod args;
 mod encoders;
-mod errors;
 mod tests;
+
 mod utils;
+use utils::*;
 
 use args::*;
 use colored::Colorize;
@@ -30,6 +30,7 @@ fn main() -> anyhow::Result<()> {
             // else, default to Info logging
             SimpleLogger::new()
                 .with_level(log::LevelFilter::Info)
+                .without_timestamps()
                 .init();
         }
     }
@@ -75,7 +76,7 @@ fn compress(
     let mut tokens = Compressor::new(pipeline.clone());
 
     let mut compressed_contents = match check_integerity {
-        true => tokens.try_compress(data).unwrap(),
+        true => tokens.compress_and_check(data).unwrap(),
         false => tokens.compress(data),
     };
 
@@ -105,7 +106,7 @@ fn decompress(file: String, output: Option<String>) -> anyhow::Result<()> {
 
     let data = std::fs::read(&file)?;
 
-    let Some(header_index) = utils::index_of(&data, &b'|') else {
+    let Some(header_index) = tools::index_of(&data, &b'|') else {
         log::error!("Invlaid format! Aborting...");
         std::process::exit(1);
     };

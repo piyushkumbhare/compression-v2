@@ -1,4 +1,4 @@
-use crate::utils::index_of;
+use crate::utils::tools;
 
 use super::encoder::Encoder;
 
@@ -56,7 +56,7 @@ impl Encoder for Mtf {
         let mut data: Vec<u8> = vec![];
         input
             .iter()
-            .for_each(|&byte| match index_of(&alphabet, &byte) {
+            .for_each(|&byte| match tools::index_of(&alphabet, &byte) {
                 Some(index) => {
                     alphabet.remove(index);
                     alphabet.insert(0, byte);

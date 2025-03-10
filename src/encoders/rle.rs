@@ -1,6 +1,6 @@
 use std::ops::Div;
 
-use crate::{utils::{get_least_used_byte, insert_before_target}, *};
+use crate::{utils::tools::{get_least_used_byte, insert_before_target}, *};
 
 use super::encoder::Encoder;
 

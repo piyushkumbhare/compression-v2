@@ -26,6 +26,16 @@ where
         .collect()
 }
 
+pub fn enumerate_duplicate_bytes(v: &[u8]) -> Vec<(u8, usize)> {
+    let mut map: [usize; 256] = [0; 256];
+    v.into_iter()
+        .map(|&f| {
+            map[f as usize] += 1;
+            (f, map[f as usize] - 1)
+        })
+        .collect()
+}
+
 /// Helper function to convert a `u32` in base-10 to a different base (usually base-36)
 pub fn format_radix(mut x: u32, radix: u32) -> String {
     let mut result = vec![];
